@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+google.genai
+python-dotenv
+google.generativeai
+groq
+
+
+
+
