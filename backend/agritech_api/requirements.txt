@@ -5,3 +5,23 @@ pydantic-settings==2.1.0
 python-dotenv==1.0.0
 httpx==0.26.0
 python-multipart==0.0.6
+
+# ML & Data Science
+numpy==1.26.4
+pandas==2.2.0
+scikit-learn==1.4.0
+scipy==1.12.0
+joblib==1.3.2
+prophet==1.1.5
+
+# Optional: Deep Learning (install if GPU available)
+# torch==2.2.0
+# tensorflow==2.15.0
+
+# Satellite/Weather APIs
+# sentinelhub==3.10.0
+# earthengine-api==0.1.361
+
+# Database (optional)
+# sqlalchemy==2.0.25
+# asyncpg==0.29.0

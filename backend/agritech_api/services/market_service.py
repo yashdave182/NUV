@@ -1,10 +1,13 @@
+import asyncio
 import random
 import math
 from typing import List, Dict, Any, Optional
 from datetime import date, datetime, timedelta
-from ..schemas import (
+from agritech_api.schemas import (
     CropType, MandiType, PriceTrend, DecisionAction, StorageCondition, TransportMode
 )
+from agritech_api.clients import get_mandi_client
+from agritech_api.ml_models import get_model_manager, PriceForecast
 
 
 MANDI_DATA = {
@@ -41,43 +44,49 @@ MANDI_DATA = {
                 {"name": "Bhavnagar APMC", "type": MandiType.APMC, "crops": [CropType.COTTON, CropType.GROUNDNUT, CropType.SESAME]},
             ]
         },
-    }
+    },
+    "Maharashtra": {
+        "Pune": {"mandis": [{"name": "Pune APMC", "type": MandiType.APMC, "crops": [CropType.GROUNDNUT, CropType.MAIZE, CropType.WHEAT]}, {"name": "Pune E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.SOYBEAN, CropType.TUR]}]},
+        "Nashik": {"mandis": [{"name": "Nashik APMC", "type": MandiType.APMC, "crops": [CropType.ONION, CropType.GRAPES, CropType.TOMATO]}]},
+        "Aurangabad": {"mandis": [{"name": "Aurangabad APMC", "type": MandiType.APMC, "crops": [CropType.COTTON, CropType.SOYBEAN, CropType.MAIZE]}]},
+    },
+    "Rajasthan": {
+        "Jaipur": {"mandis": [{"name": "Jaipur APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.BAJRA, CropType.MUSTARD]}, {"name": "Jaipur E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.GROUNDNUT]}]},
+        "Jodhpur": {"mandis": [{"name": "Jodhpur APMC", "type": MandiType.APMC, "crops": [CropType.CUMIN, CropType.CASTOR, CropType.BAJRA]}]},
+    },
+    "Madhya Pradesh": {
+        "Indore": {"mandis": [{"name": "Indore APMC", "type": MandiType.APMC, "crops": [CropType.SOYBEAN, CropType.WHEAT, CropType.CHILLI]}, {"name": "Indore E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.MAIZE]}]},
+        "Bhopal": {"mandis": [{"name": "Bhopal APMC", "type": MandiType.APMC, "crops": [CropType.SOYBEAN, CropType.WHEAT, CropType.CHILLI]}]},
+    },
+    "Uttar Pradesh": {
+        "Lucknow": {"mandis": [{"name": "Lucknow APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.SUGARCANE, CropType.POTATO]}]},
+        "Kanpur": {"mandis": [{"name": "Kanpur APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.POTATO, CropType.MUSTARD]}]},
+    },
 }
 
+
 BASE_PRICES = {
-    CropType.COTTON: 6500,
-    CropType.GROUNDNUT: 5500,
-    CropType.WHEAT: 2200,
-    CropType.BAJRA: 2100,
-    CropType.MAIZE: 2000,
-    CropType.CUMIN: 18000,
-    CropType.CASTOR: 5000,
-    CropType.SESAME: 8500,
-    CropType.TOBACCO: 12000,
-    CropType.GREEN_GRAM: 7000,
-    CropType.BLACK_GRAM: 6500,
-    CropType.PIGEON_PEA: 6000,
-    CropType.CHILLI: 15000,
-    CropType.ONION: 1800,
-    CropType.POTATO: 1200,
-    CropType.BANANA: 1500,
-    CropType.PAPAYA: 1000,
-    CropType.MANGO: 3000,
+    CropType.COTTON: 6500, CropType.GROUNDNUT: 5500, CropType.WHEAT: 2200,
+    CropType.BAJRA: 2100, CropType.MAIZE: 2000, CropType.CUMIN: 18000,
+    CropType.CASTOR: 5000, CropType.SESAME: 8500, CropType.TOBACCO: 12000,
+    CropType.GREEN_GRAM: 7000, CropType.BLACK_GRAM: 6500, CropType.PIGEON_PEA: 6000,
+    CropType.CHILLI: 15000, CropType.ONION: 1800, CropType.POTATO: 1200,
+    CropType.BANANA: 1500, CropType.PAPAYA: 1000, CropType.MANGO: 3000,
 }
 
 
 SEASONAL_FACTORS = {
-    CropType.COTTON: {1: 1.1, 2: 1.05, 3: 1.0, 4: 0.95, 5: 0.9, 6: 0.85, 7: 0.8, 8: 0.9, 9: 1.0, 10: 1.1, 11: 1.15, 12: 1.1},
-    CropType.GROUNDNUT: {1: 1.0, 2: 0.95, 3: 0.9, 4: 0.9, 5: 0.95, 6: 1.0, 7: 1.05, 8: 1.1, 9: 1.15, 10: 1.2, 11: 1.1, 12: 1.05},
-    CropType.WHEAT: {1: 1.0, 2: 1.0, 3: 1.0, 4: 1.05, 5: 1.1, 6: 1.15, 7: 1.1, 8: 1.05, 9: 1.0, 10: 0.95, 11: 0.95, 12: 1.0},
-    CropType.BAJRA: {1: 1.0, 2: 1.0, 3: 1.0, 4: 1.05, 5: 1.1, 6: 1.1, 7: 1.05, 8: 1.0, 9: 1.0, 10: 1.1, 11: 1.15, 12: 1.1},
-    CropType.MAIZE: {1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.05, 6: 1.1, 7: 1.1, 8: 1.05, 9: 1.0, 10: 1.0, 11: 1.0, 12: 1.0},
+    CropType.COTTON: {10: 1.1, 11: 1.15, 12: 1.1, 1: 1.05, 2: 1.0, 3: 0.95, 4: 0.9, 5: 0.9, 6: 0.85, 7: 0.85, 8: 0.9, 9: 0.95},
+    CropType.GROUNDNUT: {3: 0.9, 4: 0.9, 5: 0.95, 6: 1.0, 7: 1.05, 8: 1.1, 9: 1.15, 10: 1.2, 11: 1.1, 12: 1.05, 1: 1.0, 2: 0.95},
+    CropType.WHEAT: {3: 1.0, 4: 1.05, 5: 1.1, 6: 1.15, 7: 1.1, 8: 1.05, 9: 1.0, 10: 0.95, 11: 0.95, 12: 1.0},
+    CropType.BAJRA: {9: 1.1, 10: 1.15, 11: 1.15, 12: 1.1, 1: 1.0, 2: 1.0, 3: 1.0},
+    CropType.MAIZE: {9: 1.0, 10: 1.05, 11: 1.1, 12: 1.1, 1: 1.05, 2: 1.0},
     CropType.CUMIN: {1: 1.15, 2: 1.1, 3: 1.05, 4: 1.0, 5: 0.95, 6: 0.9, 7: 0.9, 8: 0.9, 9: 0.95, 10: 1.0, 11: 1.1, 12: 1.15},
     CropType.CASTOR: {1: 1.0, 2: 1.0, 3: 1.05, 4: 1.1, 5: 1.1, 6: 1.05, 7: 1.0, 8: 1.0, 9: 1.0, 10: 1.05, 11: 1.1, 12: 1.05},
 }
 
 
-def get_base_price(crop: CropType, month: Optional[int] = None) -> float:
+async def get_base_price(crop: CropType, month: Optional[int] = None) -> float:
     base = BASE_PRICES.get(crop, 2500)
     if month:
         factor = SEASONAL_FACTORS.get(crop, {}).get(month, 1.0)
@@ -85,29 +94,39 @@ def get_base_price(crop: CropType, month: Optional[int] = None) -> float:
     return base
 
 
-def get_mandis_for_crop(state: str, crop: CropType) -> List[Dict]:
+async def get_mandis_for_crop(state: str, crop: CropType) -> List[Dict]:
     state_data = MANDI_DATA.get(state, MANDI_DATA["Gujarat"])
     mandis = []
     for district, data in state_data.items():
         for mandi in data["mandis"]:
             if crop in mandi["crops"]:
                 mandis.append({
-                    "name": mandi["name"],
-                    "type": mandi["type"],
-                    "district": district,
-                    "state": state,
+                    "name": mandi["name"], "type": mandi["type"],
+                    "district": district, "state": state,
                 })
     return mandis
 
 
-def generate_mandi_prices(
-    crop: CropType,
-    location: str = "Gujarat",
-    count: int = 5,
-    date: Optional[date] = None
+async def get_real_mandi_prices(
+    crop: CropType, state: str = "Gujarat",
+    district: Optional[str] = None, days: int = 7
+) -> List[Dict]:
+    client = get_mandi_client()
+    prices = await client.get_prices(crop, state, district, days)
+    return [{"mandi_name": p.mandi_name, "mandi_type": p.mandi_type.value,
+             "district": p.district, "state": p.state, "crop": p.crop.value,
+             "variety": p.variety, "min_price": p.min_price, "max_price": p.max_price,
+             "modal_price": p.modal_price, "arrival_tonnes": p.arrival_tonnes,
+             "date": p.date.isoformat(), "distance_km": p.distance_km,
+             "source": p.source} for p in prices]
+
+
+async def generate_mandi_prices(
+    crop: CropType, location: str = "Gujarat",
+    count: int = 5, date: Optional[date] = None
 ) -> List[Dict]:
     date = date or date.today()
-    mandis = get_mandis_for_crop(location, crop)
+    mandis = await get_mandis_for_crop(location, crop)
     
     if not mandis:
         mandis = [
@@ -116,7 +135,7 @@ def generate_mandi_prices(
         ]
     
     prices = []
-    base = get_base_price(crop, date.month)
+    base = await get_base_price(crop, date.month)
     
     for i, mandi in enumerate(mandis[:count]):
         variation = random.uniform(0.92, 1.08)
@@ -145,9 +164,31 @@ def generate_mandi_prices(
     return prices
 
 
-def get_price_trend(crop: CropType, days: int = 30) -> List[Dict]:
+async def get_price_trend(crop: CropType, days: int = 30) -> List[Dict]:
+    real_prices = await get_real_mandi_prices(crop, "Gujarat", None, days)
+    
+    if real_prices:
+        trend_dict = {}
+        for p in real_prices:
+            d = p["date"]
+            if d not in trend_dict:
+                trend_dict[d] = {"prices": [], "arrivals": []}
+            trend_dict[d]["prices"].append(p["modal_price"])
+            trend_dict[d]["arrivals"].append(p["arrival_tonnes"])
+        
+        result = []
+        for d in sorted(trend_dict.keys()):
+            vals = trend_dict[d]
+            result.append({
+                "date": d,
+                "price_per_quintal": round(sum(vals["prices"]) / len(vals["prices"])),
+                "mandi_name": "Average",
+                "arrival_tonnes": round(sum(vals["arrivals"]), 1),
+            })
+        return result
+    
     trend = []
-    base = get_base_price(crop)
+    base = await get_base_price(crop)
     current = base * random.uniform(0.95, 1.05)
     
     for i in range(days):
@@ -188,13 +229,10 @@ def determine_price_trend(history: List[Dict]) -> PriceTrend:
         return PriceTrend.STABLE
 
 
-def calculate_spoilage_curve(
-    crop: CropType,
-    storage: StorageCondition,
-    initial_moisture: float,
-    temperature: float = 25,
-    humidity: float = 60,
-    days_stored: int = 0,
+async def calculate_spoilage_curve(
+    crop: CropType, storage: StorageCondition,
+    initial_moisture: float, temperature: float = 25,
+    humidity: float = 60, days_stored: int = 0,
     horizon_days: int = 30
 ) -> List[Dict]:
     crop_factors = {
@@ -208,12 +246,9 @@ def calculate_spoilage_curve(
     }
     
     storage_factors = {
-        StorageCondition.OPEN: 1.5,
-        StorageCondition.SHED: 1.0,
-        StorageCondition.WAREHOUSE: 0.7,
-        StorageCondition.COLD_STORAGE: 0.2,
-        StorageCondition.HERMETIC: 0.1,
-        StorageCondition.SILOS: 0.3,
+        StorageCondition.OPEN: 1.5, StorageCondition.SHED: 1.0,
+        StorageCondition.WAREHOUSE: 0.7, StorageCondition.COLD_STORAGE: 0.2,
+        StorageCondition.HERMETIC: 0.1, StorageCondition.SILOS: 0.3,
     }
     
     cf = crop_factors.get(crop, crop_factors[CropType.WHEAT])
@@ -227,7 +262,7 @@ def calculate_spoilage_curve(
     
     points = []
     current_quality = 100.0
-    base_price = get_base_price(crop)
+    base_price = await get_base_price(crop)
     
     for day in range(days_stored, days_stored + horizon_days + 1):
         if day > days_stored:
@@ -238,18 +273,13 @@ def calculate_spoilage_curve(
         loss_kg = (100 - current_quality) / 100 * 1000
         value_loss = loss_kg / 100 * base_price
         
-        if current_quality > 90:
-            risk = "low"
-        elif current_quality > 70:
-            risk = "medium"
-        elif current_quality > 50:
-            risk = "high"
-        else:
-            risk = "critical"
+        if current_quality > 90: risk = "low"
+        elif current_quality > 70: risk = "medium"
+        elif current_quality > 50: risk = "high"
+        else: risk = "critical"
         
         points.append({
-            "day": day,
-            "remaining_quality_percent": round(current_quality, 1),
+            "day": day, "remaining_quality_percent": round(current_quality, 1),
             "spoilage_loss_kg_per_tonne": round(loss_kg, 1),
             "marketable_kg_per_tonne": round(marketable_pct * 10, 1),
             "value_loss_inr_per_tonne": round(value_loss, 0),
@@ -259,36 +289,32 @@ def calculate_spoilage_curve(
     return points
 
 
-def evaluate_sell_options(
-    crop: CropType,
-    quantity_kg: float,
-    storage: StorageCondition,
-    current_price: float,
-    farmer_expected_price: Optional[float],
-    days_stored: int,
-    quality_grade: Optional[str],
-    transport_mode: TransportMode,
-    transport_cost_per_km: float,
-    max_distance_km: float,
-    location: str = "Gujarat"
+async def evaluate_sell_options(
+    crop: CropType, quantity_kg: float, storage: StorageCondition,
+    current_price: float, farmer_expected_price: Optional[float],
+    days_stored: int, quality_grade: Optional[str],
+    transport_mode: TransportMode, transport_cost_per_km: float,
+    max_distance_km: float, location: str = "Gujarat"
 ) -> List[Dict]:
     
-    mandis = get_mandis_for_crop(location, crop)
+    mandis = await get_mandis_for_crop(location, crop)
     if not mandis:
         mandis = [{"name": f"{location} APMC", "type": MandiType.APMC, "district": location, "state": location}]
     
     options = []
     
-    spoilage_curve = calculate_spoilage_curve(crop, storage, 12, 25, 60, days_stored, 30)
+    spoilage_curve = await calculate_spoilage_curve(crop, storage, 12, 25, 60, days_stored, 30)
     daily_spoilage_rate = (spoilage_curve[1]["spoilage_loss_kg_per_tonne"] - spoilage_curve[0]["spoilage_loss_kg_per_tonne"]) / 1000
+    
+    mandi_prices_data = await get_real_mandi_prices(crop, location, None, 7)
+    mandi_price_map = {p["mandi_name"]: p["modal_price"] for p in mandi_prices_data}
     
     for mandi in mandis[:5]:
         distance = mandi.get("distance_km", random.uniform(10, 80))
         if distance > max_distance_km:
             continue
         
-        mandi_prices = generate_mandi_prices(crop, location, 1)
-        mandi_price = mandi_prices[0]["price_per_quintal"] if mandi_prices else current_price
+        mandi_price = mandi_price_map.get(mandi["name"], await get_base_price(crop))
         
         grade_factor = {"FAQ": 1.0, "Grade-A": 1.05, "Grade-B": 0.95, "Grade-C": 0.85}.get(quality_grade, 1.0)
         adjusted_price = mandi_price * grade_factor
@@ -319,10 +345,8 @@ def evaluate_sell_options(
         total_net = net_per_quintal * (quantity_kg / 100)
         
         risk = "low"
-        if daily_spoilage_rate > 0.002:
-            risk = "high"
-        elif daily_spoilage_rate > 0.001:
-            risk = "medium"
+        if daily_spoilage_rate > 0.002: risk = "high"
+        elif daily_spoilage_rate > 0.001: risk = "medium"
         
         if action == DecisionAction.STORE and days_stored > 60:
             risk = "high"
@@ -340,18 +364,16 @@ def evaluate_sell_options(
             "total_net_income": round(total_net),
             "days_to_execute": days_to_execute,
             "risk_level": risk,
-            "reasoning": f"Mandi price: ₹{adjusted_price}/q. Transport: ₹{transport_cost:.0f}. Storage risk: {risk}. Recommended: {action.value.replace('_', ' ')}."
+            "reasoning": f"Mandi price: ₹{adjusted_price}/q. Transport: ₹{transport_cost:.0f}. Storage risk: {risk}. Recommended: {action.value.replace('_', ' ')}.",
         })
     
     options.sort(key=lambda x: x["total_net_income"], reverse=True)
     return options
 
 
-def calculate_transport_cost(
-    distance_km: float,
-    quantity_kg: float,
-    mode: TransportMode,
-    crop: Optional[CropType] = None
+async def calculate_transport_cost(
+    distance_km: float, quantity_kg: float,
+    mode: TransportMode, crop: Optional[CropType] = None
 ) -> Dict[str, Any]:
     
     mode_rates = {
@@ -375,27 +397,46 @@ def calculate_transport_cost(
     time_hours = distance_km / 40 * trips + 2 * trips
     
     return {
-        "distance_km": distance_km,
-        "transport_mode": mode.value,
-        "quantity_tonnes": tonnes,
-        "trips_required": trips,
+        "distance_km": distance_km, "transport_mode": mode.value,
+        "quantity_tonnes": tonnes, "trips_required": trips,
         "cost_per_km_per_tonne": m["rate_per_km_per_tonne"],
-        "variable_cost": round(variable_cost),
-        "fixed_cost": round(fixed_cost),
+        "variable_cost": round(variable_cost), "fixed_cost": round(fixed_cost),
         "loading_unloading_cost": round(loading_unloading),
-        "total_cost": round(total),
-        "cost_per_quintal": round(per_quintal),
+        "total_cost": round(total), "cost_per_quintal": round(per_quintal),
         "estimated_time_hours": round(time_hours, 1),
     }
 
 
-def forecast_prices(
-    crop: CropType,
-    horizon_days: int = 14,
+async def forecast_prices_ml(
+    crop: CropType, horizon_days: int = 14,
     current_price: Optional[float] = None
 ) -> List[Dict]:
+    model_manager = get_model_manager()
     
-    base = current_price or get_base_price(crop)
+    if model_manager.price_models.get(crop):
+        historical = await get_price_trend(crop, 60)
+        mandi_prices = await get_real_mandi_prices(crop, "Gujarat", None, 30)
+        
+        arrivals = [{"date": p["date"], "arrival_tonnes": p["arrival_tonnes"]} for p in mandi_prices]
+        weather = [{"temp_max_c": 30, "temp_min_c": 20, "humidity_percent": 60, "rainfall_mm": 0, "wind_speed_kmph": 10}] * horizon_days
+        market_data = {"mandi_count": 5, "transport_cost": 100}
+        
+        forecasts = await model_manager.forecast_prices(
+            crop, current_price or await get_base_price(crop),
+            historical, arrivals, weather, market_data, horizon_days
+        )
+        
+        return [{
+            "date": f.forecast_date.isoformat(),
+            "predicted_price": f.predicted_price,
+            "lower_bound": f.lower_bound,
+            "upper_bound": f.upper_bound,
+            "trend": f.trend,
+            "confidence": f.confidence,
+            "drivers": f.drivers,
+        } for f in forecasts]
+    
+    base = current_price or await get_base_price(crop)
     forecast = []
     
     trend = random.choice(["rising", "falling", "stable"])
@@ -406,27 +447,21 @@ def forecast_prices(
         d = date.today() + timedelta(days=i)
         change = daily_change + random.uniform(-volatility, volatility)
         base = base * (1 + change)
-        base = max(get_base_price(crop) * 0.7, min(get_base_price(crop) * 1.4, base))
+        base = max(await get_base_price(crop) * 0.7, min(await get_base_price(crop) * 1.4, base))
         
         lower = base * 0.95
         upper = base * 1.05
         
         forecast.append({
-            "date": d.isoformat(),
-            "predicted_price": round(base),
-            "lower_bound": round(lower),
-            "upper_bound": round(upper),
+            "date": d.isoformat(), "predicted_price": round(base),
+            "lower_bound": round(lower), "upper_bound": round(upper),
             "confidence": max(0.5, 0.9 - i * 0.02),
         })
     
     return forecast
 
 
-def check_price_alert(
-    alert_price: float,
-    current_price: float,
-    direction: str
-) -> bool:
+async def check_price_alert(alert_price: float, current_price: float, direction: str) -> bool:
     if direction == "above":
         return current_price >= alert_price
     else:

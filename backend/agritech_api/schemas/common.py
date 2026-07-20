@@ -87,6 +87,13 @@ class IrrigationSource(str, Enum):
     SPRINKLER = "sprinkler"
 
 
+class IrrigationMethod(str, Enum):
+    FLOOD = "flood"
+    DRIP = "drip"
+    SPRINKLER = "sprinkler"
+    FURROW = "furrow"
+
+
 class StorageCondition(str, Enum):
     OPEN = "open"
     SHED = "shed"
@@ -117,6 +124,15 @@ class AdvisoryPriority(str, Enum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
+
+
+class GrowthStage(str, Enum):
+    GERMINATION = "germination"
+    VEGETATIVE = "vegetative"
+    FLOWERING = "flowering"
+    FRUITING = "fruiting"
+    MATURITY = "maturity"
+    HARVEST = "harvest"
 
 
 class ConfidenceLevel(str, Enum):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List, Optional, Dict
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import uuid
 
 from agritech_api.schemas import (
@@ -18,19 +18,20 @@ from agritech_api.schemas import (
 )
 from agritech_api.services.agriculture_service import (
     get_crop_data, get_growth_stage, get_days_after_sowing,
-    get_irrigation_advisory, get_fertilizer_advisory, get_pest_disease_advisory,
-    get_weather_based_advice, get_next_scheduled_activities, generate_sms_summary,
-    calculate_crop_water_need, estimate_yield,
+    calculate_et0, calculate_crop_water_need,
+    get_irrigation_advisory, get_fertilizer_advisory,
+    get_pest_disease_advisory, get_weather_based_advice,
+    get_next_scheduled_activities, generate_sms_summary,
+    get_real_weather_data, get_satellite_data, get_soil_data,
+    get_ml_yield_prediction,
 )
 from agritech_api.services.weather_service import (
     generate_weather_forecast, generate_weather_advisories, get_overall_risk,
-    calculate_et0, get_crop_coefficient, calculate_etc,
+    calculate_et0 as weather_et0, get_crop_coefficient, calculate_etc,
     assess_heat_stress, assess_cold_stress,
 )
-from ..services.weather_service import (
-    generate_weather_forecast, generate_weather_advisories, get_overall_risk,
-)
 from ..schemas.common import Language
+from agritech_api.schemas import GrowthStage
 
 router = APIRouter(prefix="/agriculture", tags=["Agriculture Advisory"])
 
@@ -58,33 +59,36 @@ def build_advisory_item(adv_dict: Dict) -> AdvisoryItem:
 async def get_farm_advisory(request: FarmInputRequest, background_tasks: BackgroundTasks):
     try:
         request_id = str(uuid.uuid4())[:8]
-        days_after_sowing = get_days_after_sowing(request.sowing_date)
-        growth_stage = get_growth_stage(request.crop_type, days_after_sowing)
+        days_after_sowing = await get_days_after_sowing(request.sowing_date)
+        growth_stage = await get_growth_stage(request.crop_type, days_after_sowing)
+        
+        weather_forecast = request.weather_forecast or await get_real_weather_data(request.location, 7)
         
         et0 = 0
         if request.temperature_celsius and request.humidity_percent:
-            et0 = calculate_et0(
+            et0 = await calculate_et0(
                 request.temperature_celsius + 3,
                 request.temperature_celsius - 3,
                 request.humidity_percent,
                 request.wind_speed_kmph or 10
             )
-        etc = calculate_crop_water_need(request.crop_type, growth_stage, et0) if et0 else 0
         
-        irrigation_adv = get_irrigation_advisory(
+        soil_data = await get_soil_data(request.location)
+        
+        irrigation_adv = await get_irrigation_advisory(
             request.crop_type, growth_stage, request.soil_type, request.irrigation_source,
-            None, request.rainfall_mm or 0, et0, days_after_sowing
+            None, request.rainfall_mm or 0, et0, days_after_sowing,
+            request.location, request.area_hectares,
         ) if et0 > 0 else None
         
-        fertilizer_adv = get_fertilizer_advisory(
-            request.crop_type, growth_stage, request.area_hectares, None
+        fertilizer_adv = await get_fertilizer_advisory(
+            request.crop_type, growth_stage, request.area_hectares, soil_data
         )
         
-        pest_disease_advs = get_pest_disease_advisory(
-            request.crop_type, growth_stage, request.pest_disease_observed, request.weather_forecast
+        pest_disease_advs = await get_pest_disease_advisory(
+            request.crop_type, growth_stage, request.pest_disease_observed, weather_forecast
         )
         
-        weather_forecast = request.weather_forecast or generate_weather_forecast(request.location, 7)
         weather_advice = get_weather_based_advice(weather_forecast)
         weather_advisories = generate_weather_advisories(weather_forecast, request.crop_type, growth_stage)
         
@@ -121,18 +125,34 @@ async def get_farm_advisory(request: FarmInputRequest, background_tasks: Backgro
             })
         
         next_activities = get_next_scheduled_activities(request.crop_type, growth_stage, days_after_sowing)
+        
+        crop_data = await get_crop_data(request.crop_type)
         pest_risk = [
             {"pest": p, "risk": "medium", "stage": growth_stage.value}
-            for p in get_crop_data(request.crop_type)["major_pests"][:3]
+            for p in crop_data["major_pests"][:3]
         ]
         pest_risk.extend([
             {"disease": d, "risk": "medium", "stage": growth_stage.value}
-            for d in get_crop_data(request.crop_type)["major_diseases"][:2]
+            for d in crop_data["major_diseases"][:2]
         ])
         
         sms = generate_sms_summary(all_advisories, request.language.value)
         
         advisory_items = [build_advisory_item(a) for a in all_advisories]
+        
+        yield_pred = await get_ml_yield_prediction(
+            request.crop_type, request.area_hectares, request.soil_type or SoilType.ALLUVIAL,
+            request.sowing_date, request.location, soil_data,
+            [{"temp_max_c": w.get("temp_max_c", 30), "temp_min_c": w.get("temp_min_c", 20),
+              "humidity_percent": w.get("humidity_percent", 60), "rainfall_mm": w.get("rainfall_mm", 0),
+              "wind_speed_kmph": w.get("wind_speed_kmph", 10)} for w in weather_forecast],
+            [{"ndvi": s.get("ndvi", 0.6), "soil_moisture_percent": s.get("soil_moisture_percent", 50),
+              "crop_health_score": s.get("crop_health_score", 70)} for s in await get_satellite_data(
+                  request.location, request.crop_type, request.area_hectares, request.sowing_date
+              )],
+            {"irrigation_count": 5, "fertilizer_n": 100, "fertilizer_p": 50, "fertilizer_k": 40,
+             "pest_pressure": 0.1, "disease_pressure": 0.1},
+        )
         
         return FarmAdvisoryResponse(
             request_id=request_id,
@@ -156,42 +176,43 @@ async def get_farm_advisory(request: FarmInputRequest, background_tasks: Backgro
 async def get_irrigation_schedule(request: IrrigationSchedulingRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
-        days_after_sowing = get_days_after_sowing(request.sowing_date)
-        growth_stage = get_growth_stage(request.crop_type, days_after_sowing)
+        days_after_sowing = await get_days_after_sowing(request.sowing_date)
+        growth_stage = await get_growth_stage(request.crop_type, days_after_sowing)
         
-        weather_forecast = request.weather_forecast or generate_weather_forecast(request.location, 7)
+        weather_forecast = request.weather_forecast or await get_real_weather_data(request.location, 7)
         et0_values = []
         for w in weather_forecast:
-            et0 = calculate_et0(
-                w["temp_max_c"], w["temp_min_c"], w["humidity_percent"], w["wind_speed_kmph"]
+            et0 = await calculate_et0(
+                w.get("temp_max_c", 30), w.get("temp_min_c", 20),
+                w.get("humidity_percent", 60), w.get("wind_speed_kmph", 10)
             )
             et0_values.append(et0)
         
         avg_et0 = sum(et0_values) / len(et0_values) if et0_values else 5.0
-        kc = get_crop_coefficient(request.crop_type, growth_stage)
-        etc = calculate_etc(avg_et0, kc)
         
+        from agritech_api.schemas import GrowthStage
         last_irrigation_days = None
         if request.last_irrigation_date:
             last_irrigation_days = (date.today() - request.last_irrigation_date).days
         
-        irrigation_adv = get_irrigation_advisory(
+        irrigation_adv = await get_irrigation_advisory(
             request.crop_type, growth_stage, request.soil_type, request.irrigation_source,
-            last_irrigation_days, 0, avg_et0, days_after_sowing
+            last_irrigation_days, 0, avg_et0, days_after_sowing,
+            request.location, request.area_hectares, request.irrigation_method,
         )
         
         schedule = []
-        interval = 3 if growth_stage in [GrowthStage.FLOWERING, GrowthStage.FRUITING] else 5
+        interval = irrigation_adv["interval_days"]
         for i in range(7):
             d = date.today() + timedelta(days=i * interval)
             schedule.append({
                 "date": d.isoformat(),
-                "depth_mm": round(etc * interval, 1),
-                "volume_m3": round(etc * interval * request.area_hectares * 10, 1),
-                "duration_hours": round(etc * interval * request.area_hectares * 10 / 50, 1),
+                "depth_mm": irrigation_adv["depth_mm"],
+                "volume_m3": irrigation_adv["volume_m3_per_ha"],
+                "duration_hours": round(irrigation_adv["volume_m3_per_ha"] * request.area_hectares / 50, 1),
                 "stage": growth_stage.value,
                 "criticality": "critical" if growth_stage in [GrowthStage.FLOWERING, GrowthStage.FRUITING] else "optimal",
-                "water_saving_tip": "Use drip irrigation" if request.irrigation_method != "drip" else "Drip irrigation active",
+                "water_saving_tip": irrigation_adv["water_saving_tips"][i % len(irrigation_adv["water_saving_tips"])],
             })
         
         water_saving = [
@@ -202,7 +223,7 @@ async def get_irrigation_schedule(request: IrrigationSchedulingRequest):
             "Alternate wetting and drying for rice",
         ]
         
-        sms = f"Irrigation: {etc:.1f} mm/day needed. Irrigate every {interval} days. {water_saving[0]}."
+        sms = f"Irrigation: {irrigation_adv['etc_mm_day']:.1f} mm/day needed. Irrigate every {interval} days. {water_saving[0]}."
         
         return IrrigationSchedulingResponse(
             request_id=request_id,
@@ -210,10 +231,10 @@ async def get_irrigation_schedule(request: IrrigationSchedulingRequest):
             crop_type=request.crop_type,
             current_stage=growth_stage,
             eto_mm_per_day=round(avg_et0, 1),
-            etc_mm_per_day=round(etc, 1),
+            etc_mm_per_day=irrigation_adv["etc_mm_day"],
             soil_moisture_status="Monitor",
             irrigation_schedule=schedule,
-            total_water_requirement_mm=round(etc * get_crop_data(request.crop_type)["duration_days"], 1),
+            total_water_requirement_mm=round(irrigation_adv["etc_mm_day"] * await get_crop_data(request.crop_type)["duration_days"], 1),
             water_saving_recommendations=water_saving,
             language=request.language,
             generated_at=datetime.utcnow(),
@@ -228,8 +249,8 @@ async def get_irrigation_schedule(request: IrrigationSchedulingRequest):
 async def get_fertilizer_recommendation(request: FertilizerRecommendationRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
-        days_after_sowing = get_days_after_sowing(request.sowing_date)
-        growth_stage = get_growth_stage(request.crop_type, days_after_sowing)
+        days_after_sowing = await get_days_after_sowing(request.sowing_date)
+        growth_stage = await get_growth_stage(request.crop_type, days_after_sowing)
         
         soil_test = None
         if request.available_n_kg_per_ha is not None:
@@ -240,8 +261,11 @@ async def get_fertilizer_recommendation(request: FertilizerRecommendationRequest
                 "zn_ppm": request.available_zn_ppm,
                 "fe_ppm": request.available_fe_ppm,
             }
+        else:
+            soil_data = await get_soil_data(request.location)
+            soil_test = soil_data
         
-        fertilizer_adv = get_fertilizer_advisory(
+        fertilizer_adv = await get_fertilizer_advisory(
             request.crop_type, growth_stage, request.area_hectares, soil_test
         )
         
@@ -284,7 +308,7 @@ async def identify_pest_disease(request: PestDiseaseIdentificationRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        matches = get_pest_disease_advisory(
+        matches = await get_pest_disease_advisory(
             request.crop_type, request.growth_stage, request.symptoms, request.recent_weather
         )
         
@@ -324,10 +348,7 @@ async def identify_pest_disease(request: PestDiseaseIdentificationRequest):
         ]
         
         preventive = [
-            "Crop rotation",
-            "Resistant varieties",
-            "Balanced nutrition",
-            "Field sanitation",
+            "Crop rotation", "Resistant varieties", "Balanced nutrition", "Field sanitation",
         ]
         
         monitoring = [
@@ -361,11 +382,11 @@ async def identify_pest_disease(request: PestDiseaseIdentificationRequest):
 async def get_crop_calendar(request: CropCalendarRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
-        crop_data = get_crop_data(request.crop_type)
+        crop_data = await get_crop_data(request.crop_type)
         
         calendar = []
         for week in range(1, crop_data["duration_days"] // 7 + 2):
-            stage = get_growth_stage(request.crop_type, week * 7)
+            stage = await get_growth_stage(request.crop_type, week * 7)
             activities = []
             
             if stage == GrowthStage.GERMINATION:
@@ -426,16 +447,18 @@ async def get_soil_health_card(request: SoilHealthCardRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
+        soil_data = await get_soil_data(request.location, request.survey_number)
+        
         parameters = [
-            {"parameter": "pH", "value": 7.2, "unit": "", "status": "optimal", "recommendation": "Suitable for most crops"},
-            {"parameter": "EC", "value": 0.45, "unit": "dS/m", "status": "optimal", "recommendation": "No salinity issue"},
-            {"parameter": "Organic Carbon", "value": 0.55, "unit": "%", "status": "medium", "recommendation": "Add FYM/green manure"},
-            {"parameter": "Available N", "value": 220, "unit": "kg/ha", "status": "medium", "recommendation": "Apply recommended N dose"},
-            {"parameter": "Available P", "value": 18, "unit": "kg/ha", "status": "medium", "recommendation": "Apply P as per soil test"},
-            {"parameter": "Available K", "value": 180, "unit": "kg/ha", "status": "medium", "recommendation": "Apply K as per soil test"},
-            {"parameter": "Sulphur", "value": 12, "unit": "ppm", "status": "medium", "recommendation": "Apply gypsum/elemental S if deficient"},
-            {"parameter": "Zinc", "value": 0.7, "unit": "ppm", "status": "medium", "recommendation": "Apply ZnSO4 if <0.6 ppm"},
-            {"parameter": "Boron", "value": 0.5, "unit": "ppm", "status": "low", "recommendation": "Apply borax for sensitive crops"},
+            {"parameter": "pH", "value": soil_data["ph"], "unit": "", "status": "optimal" if 6.5 <= soil_data["ph"] <= 7.5 else "medium", "recommendation": "Suitable for most crops"},
+            {"parameter": "EC", "value": soil_data["ec_ds_m"], "unit": "dS/m", "status": "optimal" if soil_data["ec_ds_m"] < 1 else "medium", "recommendation": "No salinity issue"},
+            {"parameter": "Organic Carbon", "value": soil_data["organic_carbon_percent"], "unit": "%", "status": "medium", "recommendation": "Add FYM/green manure"},
+            {"parameter": "Available N", "value": soil_data["available_n_kg_ha"], "unit": "kg/ha", "status": "medium", "recommendation": "Apply recommended N dose"},
+            {"parameter": "Available P", "value": soil_data["available_p_kg_ha"], "unit": "kg/ha", "status": "medium", "recommendation": "Apply P as per soil test"},
+            {"parameter": "Available K", "value": soil_data["available_k_kg_ha"], "unit": "kg/ha", "status": "medium", "recommendation": "Apply K as per soil test"},
+            {"parameter": "Sulphur", "value": soil_data["sulphur_ppm"], "unit": "ppm", "status": "medium", "recommendation": "Apply gypsum/elemental S if deficient"},
+            {"parameter": "Zinc", "value": soil_data["zinc_ppm"], "unit": "ppm", "status": "medium" if soil_data["zinc_ppm"] > 0.6 else "low", "recommendation": "Apply ZnSO4 if <0.6 ppm"},
+            {"parameter": "Boron", "value": soil_data["boron_ppm"], "unit": "ppm", "status": "low", "recommendation": "Apply borax for sensitive crops"},
         ]
         
         crop_suit = [
@@ -451,7 +474,7 @@ async def get_soil_health_card(request: SoilHealthCardRequest):
             {"amendment": "ZnSO4 25 kg/ha", "purpose": "Zn correction", "cost_inr_ha": 1125},
         ]
         
-        sms = "Soil: pH 7.2, EC 0.45, OC 0.55%. N-P-K medium. Add FYM, gypsum, ZnSO4. Suitable for cotton, groundnut, cumin."
+        sms = f"Soil: pH {soil_data['ph']}, EC {soil_data['ec_ds_m']}, OC {soil_data['organic_carbon_percent']}%. N-P-K medium. Add FYM, gypsum, ZnSO4. Suitable for cotton, groundnut, cumin."
         
         return SoilHealthCardResponse(
             request_id=request_id,
@@ -459,15 +482,15 @@ async def get_soil_health_card(request: SoilHealthCardRequest):
             location=request.location,
             survey_number=request.survey_number,
             parameters=parameters,
-            ph=7.2,
-            ec_ds_m=0.45,
-            organic_carbon_percent=0.55,
-            nitrogen_kg_ha=220,
-            phosphorus_kg_ha=18,
-            potassium_kg_ha=180,
-            sulphur_ppm=12,
-            zinc_ppm=0.7,
-            boron_ppm=0.5,
+            ph=soil_data["ph"],
+            ec_ds_m=soil_data["ec_ds_m"],
+            organic_carbon_percent=soil_data["organic_carbon_percent"],
+            nitrogen_kg_ha=soil_data["available_n_kg_ha"],
+            phosphorus_kg_ha=soil_data["available_p_kg_ha"],
+            potassium_kg_ha=soil_data["available_k_kg_ha"],
+            sulphur_ppm=soil_data["sulphur_ppm"],
+            zinc_ppm=soil_data["zinc_ppm"],
+            boron_ppm=soil_data["boron_ppm"],
             language=request.language,
             generated_at=datetime.utcnow(),
             sms_summary=sms,
@@ -673,7 +696,7 @@ async def get_weather_advisory(request: WeatherAdvisoryRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        forecast = generate_weather_forecast(request.location, request.forecast_days)
+        forecast = await get_real_weather_data(request.location, request.forecast_days)
         advisories = generate_weather_advisories(forecast, request.crop_type, request.growth_stage)
         risk = get_overall_risk(advisories)
         

@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from agritech_api.routers import agriculture, market, health, schemes, livestock
 from agritech_api.schemas.common import Language
+from agritech_api.clients import get_weather_client, get_mandi_client, get_satellite_client, get_soil_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,6 +19,18 @@ async def lifespan(app: FastAPI):
     logger.info("Loaded routers: agriculture, market, health, schemes, livestock")
     yield
     logger.info("Shutting down AgriTech API server...")
+    # Close HTTP clients
+    try:
+        weather_client = get_weather_client()
+        await weather_client.close()
+        mandi_client = get_mandi_client()
+        await mandi_client.close()
+        satellite_client = get_satellite_client()
+        await satellite_client.close()
+        soil_client = get_soil_client()
+        await soil_client.close()
+    except Exception as e:
+        logger.warning(f"Error closing clients: {e}")
 
 
 app = FastAPI(

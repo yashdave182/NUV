@@ -5,6 +5,7 @@ from .common import (
     WeatherCondition, ReportFormat, BaseRequest, BaseResponse, SMSAlertConfig,
     AlertSimulationRequest, AlertSimulationResponse,
     AnimalType, BreedType, HealthStatus, VaccinationStatus, LactationStage, HousingType,
+    IrrigationMethod, GrowthStage,
 )
 
 from .advisory import (

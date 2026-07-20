@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  # Main AgriTech API
+  agritech-api:
+    build:
+      context: ./backend/agritech_api
+      dockerfile: Dockerfile
+    ports:
+      - "7860:7860"
+    environment:
+      - APP_ENV=production
+      - PORT=7860
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - WEATHERAPI_KEY=${WEATHERAPI_KEY}
+      - AGMARKNET_API_KEY=${AGMARKNET_API_KEY}
+      - DATA_GOV_IN_API_KEY=${DATA_GOV_IN_API_KEY}
+      - SENTINEL_HUB_CLIENT_ID=${SENTINEL_HUB_CLIENT_ID}
+      - SENTINEL_HUB_CLIENT_SECRET=${SENTINEL_HUB_CLIENT_SECRET}
+      - NASA_POWER_API_KEY=${NASA_POWER_API_KEY}
+      - ICAR_SOIL_API_KEY=${ICAR_SOIL_API_KEY}
+      - DATABASE_URL=postgresql://agritech:password@postgres:5432/agritech
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - ./backend/agritech_api/.env
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend/agritech_api/models:/app/models
+      - ./backend/agritech_api/reports:/app/reports
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # SMS/Chat Backend
+  sms-backend:
+    build:
+      context: ./backend/sms
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY_1=${GROQ_API_KEY_1}
+      - GROQ_API_KEY_2=${GROQ_API_KEY_2}
+      - GEMINI_API_KEY_1=${GEMINI_API_KEY_1}
+      - GEMINI_API_KEY_2=${GEMINI_API_KEY_2}
+      - AGRITECH_API_URL=http://agritech-api:7860
+    env_file:
+      - ./backend/agritech_api/.env
+    depends_on:
+      - agritech-api
+    volumes:
+      - ./backend/sms/reports:/app/reports
+      - ./backend/sms/replies.json:/app/replies.json
+      - ./backend/sms/chat_history.json:/app/chat_history.json
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=agritech
+      - POSTGRES_USER=agritech
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agritech -d agritech"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Model Training (run once)
+  model-trainer:
+    build:
+      context: ./backend/agritech_api
+      dockerfile: Dockerfile.training
+    environment:
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - WEATHERAPI_KEY=${WEATHERAPI_KEY}
+      - AGMARKNET_API_KEY=${AGMARKNET_API_KEY}
+      - DATA_GOV_IN_API_KEY=${DATA_GOV_IN_API_KEY}
+      - SENTINEL_HUB_CLIENT_ID=${SENTINEL_HUB_CLIENT_ID}
+      - SENTINEL_HUB_CLIENT_SECRET=${SENTINEL_HUB_CLIENT_SECRET}
+      - NASA_POWER_API_KEY=${NASA_POWER_API_KEY}
+      - ICAR_SOIL_API_KEY=${ICAR_SOIL_API_KEY}
+    env_file:
+      - ./backend/agritech_api/.env
+    volumes:
+      - ./backend/agritech_api/models:/app/models
+      - ./backend/agritech_api/data:/app/data
+    depends_on:
+      - postgres
+    restart: "no"
+    command: python ml_models/training/train_models.py
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: agritech-network
