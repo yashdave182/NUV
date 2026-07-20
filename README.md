@@ -241,7 +241,7 @@ DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 ```
 
-## 📈 Model Performance
+##  Model Performance
 
 | Model | MAE | RMSE | R² | CV MAE |
 |-------|-----|------|-----|--------|
@@ -252,7 +252,7 @@ REDIS_URL=redis://...
 | Irrigation | - | - | R²: ~0.89 | - |
 | Fertilizer | - | - | R²: ~0.91 | - |
 
-## 🤝 Contributing
+##  Contributing
 
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing-feature`)
@@ -260,11 +260,11 @@ REDIS_URL=redis://...
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open Pull Request
 
-## 📄 License
+##  License
 
 MIT License - see LICENSE file for details.
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - **TetraTHON 2026** - Indo-French AI Hackathon
 - **ICAR** - Indian Council of Agricultural Research
@@ -272,8 +272,3 @@ MIT License - see LICENSE file for details.
 - **Sentinel Hub** - Copernicus satellite data
 - **OpenWeather/WeatherAPI** - Weather data providers
 
-## 📞 Support
-
-- **Issues**: GitHub Issues
-- **Email**: agritech@tetraTHON2026.com
-- **Docs**: `/docs` endpoint on running server
