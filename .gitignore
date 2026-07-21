@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.sqlite
+*.db
+
+# Model files (large)
+models/
+*.joblib
+*.pkl
+*.h5
+
+# Reports
+reports/
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.tox/
+htmlcov/
+
+# Type checking
+.mypy_cache/
