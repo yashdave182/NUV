@@ -567,3 +567,34 @@ body::before {
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
+
+/* ── Mobile Touch & Responsive Performance Optimizations ── */
+button,
+a,
+input,
+select,
+textarea,
+.nav-item,
+.glass-card,
+.badge {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* GPU Hardware Acceleration */
+.transform-gpu,
+.glass-card,
+.sidebar,
+header,
+nav {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Off-screen Content Skipping for DOM Rendering Speed */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 180px;
+}
+

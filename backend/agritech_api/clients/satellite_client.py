@@ -41,7 +41,7 @@ class SatelliteClient:
         self.nasa_power_key = os.getenv("NASA_POWER_API_KEY")
         self.open_meteo_sat = os.getenv("OPEN_METEO_SAT")
         
-        self.client = httpx.AsyncClient(timeout=60.0)
+        self.client = httpx.AsyncClient(timeout=3.0)
         self._token: Optional[str] = None
         self._token_expiry: Optional[datetime] = None
 

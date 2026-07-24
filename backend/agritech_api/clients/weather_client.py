@@ -31,7 +31,7 @@ class WeatherClient:
         self.imd_api_key = os.getenv("IMD_API_KEY")
         self.visualcrossing_key = os.getenv("VISUALCROSSING_API_KEY")
         
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.client = httpx.AsyncClient(timeout=3.0)
         
         self.provider_priority = [
             "openweather",

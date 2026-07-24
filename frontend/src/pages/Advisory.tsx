@@ -131,23 +131,23 @@ function AdvisoryTab() {
           {/* Advisories */}
           {data.advisories?.length > 0 && (
             <div>
-              <h3 className="text-sm font-bold text-white mb-3">Recommendations ({data.advisories.length})</h3>
+              <h3 className="text-sm font-bold text-emerald-950 mb-3">Recommendations ({data.advisories.length})</h3>
               <div className="space-y-3">
                 {data.advisories.map((a: any, i: number) => (
-                  <div key={i} className="glass-card p-4 border border-white/8">
+                  <div key={i} className="glass-card p-4 border border-emerald-200/80">
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div>
-                        <p className="font-semibold text-white text-sm">{a.title}</p>
+                        <p className="font-bold text-slate-900 text-sm">{a.title}</p>
                         <span className={`badge mt-1 ${getPriorityColor(a.priority)}`}>{a.priority}</span>
                       </div>
                       <ConfidencePill value={a.confidence_score || 0.75} />
                     </div>
-                    <p className="text-sm text-gray-300 leading-relaxed">{a.description}</p>
+                    <p className="text-sm text-slate-700 leading-relaxed font-medium">{a.description}</p>
                     {a.action_items?.length > 0 && (
                       <ul className="mt-3 space-y-1">
                         {a.action_items.map((item: string, j: number) => (
-                          <li key={j} className="text-xs text-gray-400 flex items-start gap-2">
-                            <span className="text-agri-500 mt-0.5">•</span>{item}
+                          <li key={j} className="text-xs text-slate-600 font-medium flex items-start gap-2">
+                            <span className="text-emerald-600 mt-0.5">•</span>{item}
                           </li>
                         ))}
                       </ul>
@@ -160,15 +160,15 @@ function AdvisoryTab() {
 
           {/* Yield Prediction */}
           {data.yield_prediction && (
-            <div className="glass-card p-4 border border-teal-600/30">
-              <h3 className="text-sm font-bold text-white mb-3">📊 Yield Prediction</h3>
+            <div className="glass-card-teal p-4 border border-teal-300/60">
+              <h3 className="text-sm font-bold text-teal-950 mb-3">📊 Yield Prediction</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-2xl font-black text-teal-400">{data.yield_prediction.predicted_yield_tonnes_ha?.toFixed(2)}</p>
-                  <p className="text-xs text-gray-400">tonnes/hectare</p>
+                  <p className="text-2xl font-black text-teal-700">{data.yield_prediction.predicted_yield_tonnes_ha?.toFixed(2)}</p>
+                  <p className="text-xs text-teal-800 font-medium">tonnes/hectare</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-300">
+                  <p className="text-sm text-slate-700 font-medium">
                     Range: {data.yield_prediction.confidence_interval?.[0]?.toFixed(1)} – {data.yield_prediction.confidence_interval?.[1]?.toFixed(1)} t/ha
                   </p>
                   <ConfidencePill value={data.yield_prediction.confidence_level || 0.75} />
@@ -176,7 +176,7 @@ function AdvisoryTab() {
               </div>
               {data.yield_prediction.risk_factors?.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-xs text-gray-500 mb-1">Risk Factors:</p>
+                  <p className="text-xs text-slate-600 font-bold mb-1">Risk Factors:</p>
                   <div className="flex flex-wrap gap-1.5">
                     {data.yield_prediction.risk_factors.map((r: string, i: number) => (
                       <span key={i} className="badge-red text-[10px]">{r}</span>
@@ -189,21 +189,21 @@ function AdvisoryTab() {
 
           {/* Weather forecast chart */}
           {data.weather_forecast?.length > 0 && (
-            <div className="glass-card p-4">
-              <h3 className="text-sm font-bold text-white mb-3">7-Day Weather Forecast</h3>
+            <div className="glass-card p-4 border border-emerald-200/80">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">7-Day Weather Forecast</h3>
               <ResponsiveContainer width="100%" height={160}>
                 <AreaChart data={data.weather_forecast.slice(0, 7)}>
                   <defs>
                     <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#16a34a" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 10 }} tickFormatter={v => v?.slice(5)} />
-                  <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: '#0a1628', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="temp_max" stroke="#22c55e" fill="url(#tempGrad)" name="Max °C" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                  <XAxis dataKey="date" tick={{ fill: '#374151', fontSize: 10, fontWeight: 600 }} tickFormatter={v => v?.slice(5)} />
+                  <YAxis tick={{ fill: '#374151', fontSize: 10, fontWeight: 600 }} />
+                  <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 12, fontSize: 12, color: '#0f172a' }} />
+                  <Area type="monotone" dataKey="temp_max" stroke="#16a34a" fill="url(#tempGrad)" name="Max °C" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -269,48 +269,48 @@ function IrrigationTab() {
       {data && (
         <div className="space-y-4 animate-slide-up">
           {(data.schedule || data.irrigation_schedule) && (
-            <div className="glass-card p-5 border border-teal-600/30">
-              <h3 className="text-sm font-bold text-white mb-4">Irrigation Schedule</h3>
+            <div className="glass-card p-5 border border-teal-200/80 bg-white/80">
+              <h3 className="text-sm font-bold text-slate-900 mb-4">Irrigation Schedule</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-teal-400">
+                  <p className="text-2xl font-bold text-teal-600">
                     {data.schedule?.interval_days || (data.irrigation_schedule?.[0] ? 5 : 7)}
                   </p>
-                  <p className="text-xs text-gray-400">Days interval</p>
+                  <p className="text-xs text-slate-600 font-semibold">Days interval</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-400">
+                  <p className="text-2xl font-bold text-blue-600">
                     {data.schedule?.depth_mm || data.irrigation_schedule?.[0]?.depth_mm || data.etc_mm_per_day || 35}
                   </p>
-                  <p className="text-xs text-gray-400">mm depth</p>
+                  <p className="text-xs text-slate-600 font-semibold">mm depth</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-agri-400">
+                  <p className="text-2xl font-bold text-emerald-600">
                     {data.schedule?.volume_m3_per_ha || data.irrigation_schedule?.[0]?.volume_m3 || 350}
                   </p>
-                  <p className="text-xs text-gray-400">m³/ha</p>
+                  <p className="text-xs text-slate-600 font-semibold">m³/ha</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-yellow-400">
+                  <p className="text-2xl font-bold text-amber-600">
                     ₹{Math.round(data.schedule?.cost_estimate_inr || (data.schedule?.volume_m3_per_ha || 350) * 15)}
                   </p>
-                  <p className="text-xs text-gray-400">est. cost/ha</p>
+                  <p className="text-xs text-slate-600 font-semibold">est. cost/ha</p>
                 </div>
               </div>
-              {data.sms_summary && <p className="text-xs text-gray-300 mt-4 border-t border-white/8 pt-3">{data.sms_summary}</p>}
+              {data.sms_summary && <p className="text-xs text-slate-700 mt-4 border-t border-slate-200 pt-3 font-medium">{data.sms_summary}</p>}
             </div>
           )}
           {(data.schedule_items?.length > 0 || data.irrigation_schedule?.length > 0) && (
-            <div className="glass-card p-4">
-              <h3 className="text-sm font-bold text-white mb-3">Upcoming Schedule</h3>
+            <div className="glass-card p-4 border border-emerald-200/80">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">Upcoming Schedule</h3>
               <table className="data-table">
                 <thead><tr><th>Date</th><th>Event</th><th>Water (mm)</th></tr></thead>
                 <tbody>
                   {(data.schedule_items || data.irrigation_schedule || []).map((item: any, i: number) => (
                     <tr key={i}>
-                      <td>{formatDate(item.date)}</td>
-                      <td>{item.activity || `Stage: ${item.stage || 'Vegetative'} (${item.water_saving_tip || 'Drip Irrigation'})`}</td>
-                      <td>{item.water_mm || item.depth_mm}</td>
+                      <td className="font-semibold text-slate-800">{formatDate(item.date)}</td>
+                      <td className="text-slate-700">{item.activity || `Stage: ${item.stage || 'Vegetative'} (${item.water_saving_tip || 'Drip Irrigation'})`}</td>
+                      <td className="font-bold text-emerald-700">{item.water_mm || item.depth_mm}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -6,6 +6,8 @@ import {
   ChevronDown, MapPin, Layers, Globe, ShieldCheck, UserPlus, LogIn
 } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
+import { OfflineSyncBanner } from './OfflineSyncBanner'
+import { FloatingAIAssistant } from './FloatingAIAssistant'
 
 const navItems = [
   { to: '/',          icon: LayoutDashboard, label: 'Dashboard',   color: 'text-emerald-600' },
@@ -17,6 +19,18 @@ const navItems = [
   { to: '/settings',  icon: Settings,        label: 'Settings',    color: 'text-slate-500'   },
 ]
 
+const prefetchMap: Record<string, () => Promise<unknown>> = {
+  '/': () => import('../pages/Dashboard'),
+  '/advisory': () => import('../pages/Advisory'),
+  '/market': () => import('../pages/Market'),
+  '/livestock': () => import('../pages/Livestock'),
+  '/health': () => import('../pages/Health'),
+  '/schemes': () => import('../pages/Schemes'),
+  '/settings': () => import('../pages/Settings'),
+  '/login': () => import('../pages/Login'),
+  '/signup': () => import('../pages/Signup'),
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const { isOnline, phone, user, isAuthenticated, logout } = useAppStore()
@@ -26,6 +40,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     logout()
     setProfileMenuOpen(false)
     navigate('/login')
+  }
+
+  const handlePrefetch = (path: string) => {
+    if (prefetchMap[path]) {
+      prefetchMap[path]()
+    }
   }
 
   return (
@@ -96,6 +116,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               key={to}
               to={to}
               end={to === '/'}
+              onMouseEnter={() => handlePrefetch(to)}
+              onFocus={() => handlePrefetch(to)}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
@@ -164,6 +186,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
+            <OfflineSyncBanner />
+
             {isAuthenticated && user ? (
               <div className="relative">
                 <button
@@ -256,7 +280,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Mobile top bar */}
-        <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-emerald-100"
+        <header className="lg:hidden flex items-center justify-between px-4 py-2.5 border-b border-emerald-100"
           style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)' }}>
           <div className="flex items-center gap-2.5">
             <div className="sidebar-logo w-8 h-8 flex items-center justify-center">
@@ -267,6 +291,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <OfflineSyncBanner />
             {isAuthenticated ? (
               <button
                 onClick={() => setProfileMenuOpen(!profileMenuOpen)}
@@ -289,24 +314,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Mobile bottom navigation */}
-        <nav className="lg:hidden flex items-center justify-around py-2 border-t border-emerald-100"
-          style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)' }}>
+        {/* Floating AI Assistant Widget */}
+        <FloatingAIAssistant />
+
+        {/* Mobile adaptive bottom navigation */}
+        <nav className="lg:hidden flex items-center justify-around py-2 px-1 border-t border-emerald-100 z-30"
+          style={{ background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(16px)' }}>
           {navItems.slice(0, 6).map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
+              onMouseEnter={() => handlePrefetch(to)}
+              onFocus={() => handlePrefetch(to)}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all ${
+                `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl transition-all duration-200 ${
                   isActive
-                    ? 'text-emerald-700 bg-emerald-50 font-bold'
-                    : 'text-slate-500'
+                    ? 'text-emerald-800 bg-emerald-100/90 font-extrabold shadow-sm border border-emerald-200/80 scale-105'
+                    : 'text-slate-500 font-medium hover:text-emerald-600'
                 }`
               }
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-[9px] font-semibold">{label}</span>
+              <Icon className="w-4 h-4" />
+              <span className="text-[9px]">{label}</span>
             </NavLink>
           ))}
         </nav>

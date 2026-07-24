@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date, timedelta
 import uuid
+import asyncio
+from agritech_api.utils.cache import async_ttl_cache
 
 from agritech_api.schemas import (
     FarmInputRequest, FarmAdvisoryResponse, AdvisoryItem,
@@ -82,6 +84,7 @@ def sat_to_dict(s) -> Dict[str, Any]:
 
 
 @router.post("/advisory", response_model=FarmAdvisoryResponse)
+@async_ttl_cache(ttl_seconds=600)
 async def get_farm_advisory(request: FarmInputRequest, background_tasks: BackgroundTasks):
     try:
         request_id = str(uuid.uuid4())[:8]
@@ -89,10 +92,19 @@ async def get_farm_advisory(request: FarmInputRequest, background_tasks: Backgro
         days_after_sowing = await get_days_after_sowing(sowing_d)
         growth_stage = await get_growth_stage(request.crop_type, days_after_sowing)
         
-        raw_weather = getattr(request, 'weather_forecast', None) or await get_real_weather_data(request.location, 7)
+        # Parallelize weather and soil data fetching for maximum response speed
+        weather_task = getattr(request, 'weather_forecast', None) or get_real_weather_data(request.location, 7)
+        soil_task = get_soil_data(request.location)
+        
+        if asyncio.iscoroutine(weather_task):
+            raw_weather, soil_data = await asyncio.gather(weather_task, soil_task)
+        else:
+            raw_weather = weather_task
+            soil_data = await soil_task
+            
         weather_forecast = [weather_to_dict(w) for w in raw_weather]
         
-        et0 = 0
+        et0 = 4.5
         if request.temperature_celsius and request.humidity_percent:
             et0 = await calculate_et0(
                 request.temperature_celsius + 3,
@@ -100,8 +112,11 @@ async def get_farm_advisory(request: FarmInputRequest, background_tasks: Backgro
                 request.humidity_percent,
                 request.wind_speed_kmph or 10
             )
-        
-        soil_data = await get_soil_data(request.location)
+        elif weather_forecast:
+            t_max = weather_forecast[0].get("temp_max_c", 32)
+            t_min = weather_forecast[0].get("temp_min_c", 24)
+            rh = weather_forecast[0].get("humidity_percent", 60)
+            et0 = await calculate_et0(t_max, t_min, rh, 10)
         
         irrigation_adv = await get_irrigation_advisory(
             request.crop_type, growth_stage, request.soil_type, request.irrigation_source,

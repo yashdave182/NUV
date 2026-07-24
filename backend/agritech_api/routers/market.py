@@ -23,11 +23,13 @@ from agritech_api.services.market_service import (
     forecast_prices_ml as forecast_prices, check_price_alert as service_check_price_alert, get_mandis_for_crop,
 )
 from agritech_api.schemas.common import Language
+from agritech_api.utils.cache import async_ttl_cache
 
 router = APIRouter(prefix="/market", tags=["Market Intelligence"])
 
 
 @router.post("/mandi-prices", response_model=MandiPriceResponse)
+@async_ttl_cache(ttl_seconds=300)
 async def get_mandi_prices(request: MandiPriceRequest):
     try:
         request_id = str(uuid.uuid4())[:8]

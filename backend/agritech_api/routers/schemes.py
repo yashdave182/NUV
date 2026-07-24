@@ -11,6 +11,7 @@ from agritech_api.schemas import (
     EligibilityResult, SchemeCategory, BeneficiaryType, Language, Location,
 )
 from agritech_api.services.schemes_service import search_schemes, get_scheme_detail as service_get_scheme_detail, check_eligibility
+from agritech_api.utils.cache import async_ttl_cache
 
 router = APIRouter(prefix="/schemes", tags=["Government Schemes"])
 
@@ -31,6 +32,7 @@ def _benefit_str(benefits) -> str:
 
 
 @router.post("/search", response_model=SchemeQueryResponse)
+@async_ttl_cache(ttl_seconds=300)
 async def search_schemes_endpoint(request: SchemeQueryRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
@@ -79,6 +81,7 @@ async def search_schemes_endpoint(request: SchemeQueryRequest):
 
 
 @router.post("/detail", response_model=SchemeDetailResponse)
+@async_ttl_cache(ttl_seconds=600)
 async def get_scheme_detail(request: SchemeDetailRequest):
     try:
         request_id = str(uuid.uuid4())[:8]

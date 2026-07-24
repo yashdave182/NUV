@@ -39,7 +39,7 @@ export function Alert({ type = 'info', title, message, dismissible = false }: Al
   )
 }
 
-// ── Loading Card ──────────────────────────────────────────────────────────────
+// ── Loading Card & Shimmer Skeletons ──────────────────────────────────────────
 export function LoadingCard({ label, rows = 4 }: { label?: string; rows?: number }) {
   return (
     <div className="glass-card p-6 space-y-3 animate-fade-in">
@@ -51,6 +51,53 @@ export function LoadingCard({ label, rows = 4 }: { label?: string; rows?: number
       )}
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="shimmer h-4 rounded-lg" style={{ width: `${92 - i * 10}%`, animationDelay: `${i * 150}ms` }} />
+      ))}
+    </div>
+  )
+}
+
+export function SkeletonCard() {
+  return (
+    <div className="glass-card p-5 space-y-3 animate-pulse">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-emerald-100/70" />
+        <div className="space-y-1.5 flex-1">
+          <div className="h-4 bg-slate-200/80 rounded w-1/3" />
+          <div className="h-3 bg-slate-100 rounded w-1/4" />
+        </div>
+      </div>
+      <div className="h-3 bg-slate-100 rounded w-full" />
+      <div className="h-3 bg-slate-100 rounded w-5/6" />
+    </div>
+  )
+}
+
+export function SkeletonChart({ height = '220px' }: { height?: string }) {
+  return (
+    <div className="glass-card p-5 space-y-4 animate-pulse">
+      <div className="flex justify-between items-center">
+        <div className="h-4 bg-slate-200/80 rounded w-1/4" />
+        <div className="h-3 bg-slate-100 rounded w-1/6" />
+      </div>
+      <div className="w-full rounded-xl bg-gradient-to-t from-emerald-50/60 to-slate-100/40 flex items-end p-4 gap-2" style={{ height }}>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex-1 bg-emerald-200/60 rounded-t-md" style={{ height: `${30 + (i * 11) % 65}%` }} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function SkeletonTable({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="glass-card p-4 space-y-3 animate-pulse">
+      <div className="h-5 bg-slate-200/80 rounded w-1/5 mb-3" />
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex gap-4 py-2 border-b border-slate-100">
+          <div className="h-4 bg-slate-200/60 rounded flex-1" />
+          <div className="h-4 bg-slate-100 rounded flex-1" />
+          <div className="h-4 bg-slate-100 rounded w-16" />
+        </div>
       ))}
     </div>
   )

@@ -35,7 +35,7 @@ class SoilHealthClient:
         self.state_soil_portal = os.getenv("STATE_SOIL_PORTAL_URL")
         self.soil_health_card_api = os.getenv("SOIL_HEALTH_CARD_API")
         
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.client = httpx.AsyncClient(timeout=3.0)
 
     async def get_soil_health(
         self,
