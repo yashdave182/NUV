@@ -5,7 +5,7 @@ import os
 import logging
 from contextlib import asynccontextmanager
 
-from agritech_api.routers import agriculture, market, health, schemes, livestock
+from agritech_api.routers import agriculture, market, health, schemes, livestock, iot, auth
 from agritech_api.schemas.common import Language
 from agritech_api.clients import get_weather_client, get_mandi_client, get_satellite_client, get_soil_client
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting AgriTech API server...")
-    logger.info("Loaded routers: agriculture, market, health, schemes, livestock")
+    logger.info("Loaded routers: agriculture, market, health, schemes, livestock, iot, auth")
     yield
     logger.info("Shutting down AgriTech API server...")
     # Close HTTP clients
@@ -60,11 +60,13 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
+app.include_router(auth.router)
 app.include_router(agriculture.router)
 app.include_router(market.router)
 app.include_router(health.router)
 app.include_router(schemes.router)
 app.include_router(livestock.router)
+app.include_router(iot.router)
 
 
 @app.get("/")
@@ -81,7 +83,9 @@ async def root():
             "health": "/health",
             "schemes": "/schemes",
             "livestock": "/livestock",
+            "iot": "/iot",
         },
+
         "features": [
             "Multi-input crop advisory (location, crop, sowing date, weather, leaf photo)",
             "3 ranked advisories: irrigation, fertiliser, pest/disease with confidence",

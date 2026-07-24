@@ -78,8 +78,14 @@ from .livestock import (
     AnimalType, BreedType, VaccinationStatus, LactationStage, HousingType,
 )
 
+from .auth import (
+    OTPRequest, OTPResponse, OTPVerifyRequest, UserProfile, FarmerRegisterRequest, AuthTokenResponse
+)
+
 __all__ = [
+    "OTPRequest", "OTPResponse", "OTPVerifyRequest", "UserProfile", "FarmerRegisterRequest", "AuthTokenResponse",
     "Language", "Location", "Gender", "CropType", "SoilType", "IrrigationSource",
+
     "StorageCondition", "TransportMode", "AdvisoryCategory", "AdvisoryPriority",
     "ConfidenceLevel", "DecisionAction", "PriceTrend", "AlertType", "MandiType",
     "WeatherCondition", "ReportFormat", "BaseRequest", "BaseResponse", "SMSAlertConfig",
@@ -128,4 +134,5 @@ __all__ = [
     "ApplicationStatus", "ApplicationTrackerResponse", "EligibilityCheckRequest",
     "EligibilityResult", "EligibilityCheckResponse",
     "AlertType",
-]
+    "ThingSpeakChannelInfo", "ThingSpeakFeedEntry", "ParsedTelemetry", "ThingSpeakTelemetryResponse",
+]

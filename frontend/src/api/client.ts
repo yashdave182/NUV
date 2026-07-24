@@ -79,3 +79,16 @@ export const searchSchemes = (data: object) => api.post('/schemes/search', data)
 export const getSchemeDetail = (data: object) => api.post('/schemes/detail', data)
 export const trackApplication = (data: object) => api.post('/schemes/track', data)
 export const checkEligibility = (data: object) => api.post('/schemes/eligibility', data)
+
+// ─── IoT Telemetry ────────────────────────────────────────────
+export const getIoTTelemetry = (results: number = 5) => api.get(`/iot/thingspeak/telemetry?results=${results}`)
+export const getIoTLatest = () => api.get('/iot/thingspeak/latest')
+
+// ─── Authentication & Farmer Profile ──────────────────────────
+export const sendOtpApi = (data: { phone: string; purpose?: string }) => api.post('/auth/otp/send', data)
+export const verifyOtpApi = (data: { phone: string; otp_code: string }) => api.post('/auth/otp/verify', data)
+export const loginWithPinApi = (data: { phone: string; pin: string }) => api.post('/auth/login/pin', data)
+export const registerFarmerApi = (data: object) => api.post('/auth/register', data)
+export const getActiveProfileApi = (phone?: string) => api.get(`/auth/me${phone ? `?phone=${phone}` : ''}`)
+
+

@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAppStore } from '../store/appStore'
+import { ThingspeakWidget } from '../components/ThingspeakWidget'
+
 
 // ── Carousel Data ────────────────────────────────────────────────────────────
 const slides = [
@@ -282,40 +284,9 @@ export default function Dashboard() {
 
             {/* Right: Live Sensor Widget */}
             <div className="lg:col-span-5">
-              <div className="glass-card p-5 space-y-3" style={{ border: '1px solid rgba(134,239,172,0.5)' }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#15803d' }}>Live Sensor Telemetry</p>
-                    <p className="text-xs text-slate-500 font-medium">Node #402 · Anand, Gujarat</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold"
-                    style={{ background: 'rgba(220,252,231,0.9)', color: '#15803d', border: '1px solid rgba(134,239,172,0.5)' }}>
-                    <span className="status-dot online" style={{ width: 5, height: 5 }} />
-                    LIVE
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {[
-                    { label: 'Soil Moisture', val: '52%',  sub: '✓ Optimal', color: '#15803d', bg: 'rgba(220,252,231,0.6)' },
-                    { label: 'Soil pH',       val: '6.8',  sub: '⚡ Slightly Acidic', color: '#0d9488', bg: 'rgba(204,251,241,0.6)' },
-                    { label: 'Temperature',   val: '28°C', sub: '☀️ Warm', color: '#d97706', bg: 'rgba(253,230,138,0.5)' },
-                    { label: 'Nitrogen',      val: 'High', sub: '✓ Good Level', color: '#7c3aed', bg: 'rgba(237,233,254,0.6)' },
-                  ].map(({ label, val, sub, color, bg }) => (
-                    <div key={label} className="p-3 rounded-xl" style={{ background: bg, border: `1px solid ${color}20` }}>
-                      <p className="text-[10px] font-semibold" style={{ color: '#6b7280' }}>{label}</p>
-                      <p className="text-xl font-black mt-0.5" style={{ color }}>{val}</p>
-                      <p className="text-[10px] font-semibold mt-0.5" style={{ color }}>{sub}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="pt-2 border-t border-emerald-100">
-                  <div className="flex items-center justify-between text-[10px] font-semibold" style={{ color: '#15803d' }}>
-                    <span>💧 Irrigation: Scheduled 6 PM</span>
-                    <span className="badge-green badge text-[9px]">Auto-Mode</span>
-                  </div>
-                </div>
-              </div>
+              <ThingspeakWidget compact />
             </div>
+
           </div>
         </div>
       </section>
@@ -470,8 +441,14 @@ export default function Dashboard() {
         </div>
       </section>
 
+      {/* ══ THINGSPEAK IOT TELEMETRY WIDGET ══════════════════════════════════ */}
+      <section>
+        <ThingspeakWidget />
+      </section>
+
       {/* ══ FEATURE MODULE CARDS ═════════════════════════════════════════════ */}
       <section className="space-y-5">
+
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-1" style={{ color: '#15803d' }}>Platform Modules</p>

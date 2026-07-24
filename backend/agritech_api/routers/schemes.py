@@ -10,7 +10,7 @@ from agritech_api.schemas import (
     ApplicationStatus, EligibilityCheckRequest, EligibilityCheckResponse,
     EligibilityResult, SchemeCategory, BeneficiaryType, Language, Location,
 )
-from agritech_api.services.schemes_service import search_schemes, get_scheme_detail, check_eligibility
+from agritech_api.services.schemes_service import search_schemes, get_scheme_detail as service_get_scheme_detail, check_eligibility
 
 router = APIRouter(prefix="/schemes", tags=["Government Schemes"])
 
@@ -83,7 +83,7 @@ async def get_scheme_detail(request: SchemeDetailRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        scheme = get_scheme_detail(request.scheme_id)
+        scheme = service_get_scheme_detail(request.scheme_id)
         if not scheme:
             raise HTTPException(status_code=404, detail="Scheme not found")
         

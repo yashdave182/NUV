@@ -10,6 +10,8 @@ import LivestockPage from './pages/Livestock'
 import HealthPage from './pages/Health'
 import SchemesPage from './pages/Schemes'
 import SettingsPage from './pages/Settings'
+import Login from './pages/Login'
+import Signup from './pages/Signup'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -34,6 +36,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/health" element={<HealthPage />} />
             <Route path="/schemes" element={<SchemesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
           </Routes>
         </Layout>
       </BrowserRouter>
