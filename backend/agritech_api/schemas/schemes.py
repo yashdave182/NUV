@@ -30,17 +30,19 @@ class BeneficiaryType(str, Enum):
 
 
 class SchemeQueryRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    category: Optional[SchemeCategory] = None
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    category: Optional[str] = None  # accepts any string, maps to SchemeCategory
     beneficiary_type: Optional[BeneficiaryType] = None
     keywords: Optional[List[str]] = None
     language: Language = Language.GUJLISH
     age: Optional[int] = Field(None, ge=0, le=120)
-    gender: Optional[str] = Field(None, pattern="^(male|female)$")
+    gender: Optional[str] = None
     annual_income: Optional[float] = Field(None, ge=0)
     land_holding_hectares: Optional[float] = Field(None, ge=0)
-    caste_category: Optional[str] = Field(None, pattern="^(SC|ST|OBC|General|Minority)$")
+    caste_category: Optional[str] = None
+    # Extra fields from frontend
+    crop_type: Optional[str] = None
 
 
 class SchemeSummary(BaseModel):
@@ -48,7 +50,7 @@ class SchemeSummary(BaseModel):
     name: str
     category: SchemeCategory
     implementing_agency: str
-    level: str = Field(..., pattern="^(Central|State|District|Block)$")
+    level: str
     benefit_summary: str
     eligibility_summary: str
 
@@ -65,8 +67,8 @@ class SchemeQueryResponse(BaseModel):
 
 
 class SchemeDetailRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    scheme_id: str
+    phone: str = Field(default="9876543210")
+    scheme_id: str = "PMKISAN"
     language: Language = Language.GUJLISH
 
 
@@ -112,8 +114,8 @@ class SchemeDetailResponse(BaseModel):
 
 
 class ApplicationTrackerRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    application_id: str
+    phone: str = Field(default="9876543210")
+    application_id: str = "APP-2026-0001"
     language: Language = Language.GUJLISH
 
 
@@ -139,10 +141,13 @@ class ApplicationTrackerResponse(BaseModel):
 
 
 class EligibilityCheckRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    scheme_id: str
-    profile: Dict[str, Any]
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    scheme_id: Optional[str] = None
+    profile: Optional[Dict[str, Any]] = None
+    # Flat fields from frontend
+    crop_type: Optional[str] = None
+    land_holding_hectares: Optional[float] = None
     language: Language = Language.GUJLISH
 
 

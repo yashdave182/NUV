@@ -20,7 +20,7 @@ from agritech_api.schemas import (
 from agritech_api.services.market_service import (
     generate_mandi_prices, get_price_trend, determine_price_trend,
     calculate_spoilage_curve, evaluate_sell_options, calculate_transport_cost,
-    forecast_prices, check_price_alert, get_mandis_for_crop,
+    forecast_prices_ml as forecast_prices, check_price_alert as service_check_price_alert, get_mandis_for_crop,
 )
 from agritech_api.schemas.common import Language
 
@@ -31,7 +31,7 @@ router = APIRouter(prefix="/market", tags=["Market Intelligence"])
 async def get_mandi_prices(request: MandiPriceRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
-        prices = generate_mandi_prices(request.crop_type, request.location.state or "Gujarat", 10, date.today())
+        prices = await generate_mandi_prices(request.crop_type, request.location.state or "Gujarat", 10, date.today())
         
         mandi_data = []
         for p in prices[:10]:
@@ -52,13 +52,14 @@ async def get_mandi_prices(request: MandiPriceRequest):
         
         best = max(mandi_data, key=lambda x: x.modal_price)
         avg_price = sum(m.modal_price for m in mandi_data) / len(mandi_data) if mandi_data else 0
-        trend = determine_price_trend(get_price_trend(request.crop_type, request.days))
+        trend = determine_price_trend(await get_price_trend(request.crop_type, request.days))
         total_arrivals = sum(m.arrival_tonnes for m in mandi_data if m.arrival_tonnes)
         
-        crop_name = request.crop_type.value.title()
+        crop_name = request.crop_type.value.title() if hasattr(request.crop_type, 'value') else str(request.crop_type).title()
         best_mandi = best.mandi_name
         best_price = best.modal_price
-        sms = f"{crop_name}: Best price ₹{best_price}/q at {best_mandi}. Avg: ₹{avg_price:.0f}/q. Trend: {trend.value}. Check {len(mandi_data)} mandis."
+        trend_str = trend.value if hasattr(trend, 'value') else str(trend)
+        sms = f"{crop_name}: Best price ₹{best_price}/q at {best_mandi}. Avg: ₹{avg_price:.0f}/q. Trend: {trend_str}. Check {len(mandi_data)} mandis."
         
         return MandiPriceResponse(
             request_id=request_id,
@@ -81,7 +82,7 @@ async def get_mandi_prices(request: MandiPriceRequest):
 async def get_price_trend_endpoint(request: PriceTrendRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
-        history = get_price_trend(request.crop_type, request.days)
+        history = await get_price_trend(request.crop_type, request.days)
         trend = determine_price_trend(history)
         
         trend_points = []
@@ -96,12 +97,12 @@ async def get_price_trend_endpoint(request: PriceTrendRequest):
         
         prices = [h["price_per_quintal"] for h in history]
         stats = {
-            "min": min(prices),
-            "max": max(prices),
-            "avg": sum(prices) / len(prices),
-            "current": prices[-1],
-            "change_7d": round((prices[-1] - prices[-8]) / prices[-8] * 100, 1) if len(prices) > 7 else 0,
-            "change_30d": round((prices[-1] - prices[0]) / prices[0] * 100, 1) if len(prices) > 30 else 0,
+            "min": min(prices) if prices else 0,
+            "max": max(prices) if prices else 0,
+            "avg": sum(prices) / len(prices) if prices else 0,
+            "current": prices[-1] if prices else 0,
+            "change_7d": round((prices[-1] - prices[-8]) / prices[-8] * 100, 1) if len(prices) >= 8 and prices[-8] != 0 else 0,
+            "change_30d": round((prices[-1] - prices[0]) / prices[0] * 100, 1) if len(prices) >= 30 and prices[0] != 0 else 0,
         }
         
         volatility = "high" if (max(prices) - min(prices)) / sum(prices) * len(prices) > 0.1 else "medium" if (max(prices) - min(prices)) / sum(prices) * len(prices) > 0.05 else "low"
@@ -139,7 +140,7 @@ async def get_sell_decision(request: SellDecisionRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        options_data = evaluate_sell_options(
+        options_data = await evaluate_sell_options(
             request.crop_type,
             request.quantity_kg,
             request.storage_condition,
@@ -149,7 +150,7 @@ async def get_sell_decision(request: SellDecisionRequest):
             request.quality_grade,
             request.transport_mode,
             request.transport_cost_per_km,
-            request.max_distance_km,
+            request.max_transport_distance_km,
             request.location.state or "Gujarat"
         )
         
@@ -181,11 +182,11 @@ async def get_sell_decision(request: SellDecisionRequest):
         base_price = request.current_mandi_price or 2500
         for pct in [-10, -5, 0, 5, 10]:
             test_price = base_price * (1 + pct / 100)
-            test_options = evaluate_sell_options(
+            test_options = await evaluate_sell_options(
                 request.crop_type, request.quantity_kg, request.storage_condition,
                 test_price, request.farmer_price_expectation, request.days_stored,
                 request.quality_grade, request.transport_mode, request.transport_cost_per_km,
-                request.max_distance_km, request.location.state or "Gujarat"
+                request.max_transport_distance_km, request.location.state or "Gujarat"
             )
             sensitivity.append({
                 "price_change_pct": pct,
@@ -233,7 +234,7 @@ async def optimize_transport(request: TransportOptimizationRequest):
         
         options = []
         for mode in TransportMode:
-            cost_data = calculate_transport_cost(distance, request.quantity_kg, mode, request.crop_type)
+            cost_data = await calculate_transport_cost(distance, request.quantity_kg, mode, request.crop_type)
             options.append(TransportOption(
                 transport_mode=mode,
                 distance_km=distance,
@@ -276,14 +277,14 @@ async def get_storage_advisory(request: StorageAdvisoryRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        current_spoilage = calculate_spoilage_curve(
+        current_spoilage = await calculate_spoilage_curve(
             request.crop_type, request.current_storage, request.current_moisture_percent,
             25, 60, request.days_stored, 30
         )
         
         options = []
         for storage in StorageCondition:
-            spoilage = calculate_spoilage_curve(
+            spoilage = await calculate_spoilage_curve(
                 request.crop_type, storage, request.current_moisture_percent,
                 25, 60, request.days_stored, request.target_storage_days
             )
@@ -350,7 +351,7 @@ async def get_storage_advisory(request: StorageAdvisoryRequest):
             "Treat structure with malathion 50% EC",
             "Use hermetic bags for small quantity",
             "Regular inspection weekly",
-            ],
+        ]
         
         monitoring = [
             "Check moisture weekly",
@@ -393,7 +394,7 @@ async def predict_spoilage(request: SpoilagePredictionRequest):
         temp = request.temperature_celsius or 25
         humidity = request.humidity_percent or 60
         
-        predictions = calculate_spoilage_curve(
+        predictions = await calculate_spoilage_curve(
             request.crop_type, request.storage_condition, request.current_moisture_percent,
             temp, humidity, request.days_stored, 30
         )
@@ -473,7 +474,7 @@ async def check_price_alert(request: PriceAlertTriggerRequest):
         threshold = 2500
         direction = "above"
         
-        triggered = check_price_alert(threshold, request.current_price, direction)
+        triggered = await service_check_price_alert(threshold, request.current_price, direction)
         
         if triggered:
             message = f"ALERT: {request.alert_id} triggered! Price ₹{request.current_price}/q crossed threshold ₹{threshold}/q."
@@ -506,11 +507,11 @@ async def get_market_intelligence(request: MarketIntelligenceRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        current_prices = generate_mandi_prices(request.crop_type, request.location.state or "Gujarat", 5, date.today())
+        current_prices = await generate_mandi_prices(request.crop_type, request.location.state or "Gujarat", 5, date.today())
         best = max(current_prices, key=lambda x: x["price_per_quintal"])
         avg = sum(p["price_per_quintal"] for p in current_prices) / len(current_prices)
         
-        forecast = forecast_prices(request.crop_type, request.horizon_days, current_price=avg)
+        forecast = await forecast_prices(request.crop_type, request.horizon_days, current_price=avg)
         
         arrivals_forecast = []
         for i in range(request.horizon_days):
@@ -574,7 +575,7 @@ async def get_mandi_list(request: MandiListRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        mandis = get_mandis_for_crop(request.location.state or "Gujarat", request.crop_type or CropType.COTTON)
+        mandis = await get_mandis_for_crop(request.location.state or "Gujarat", request.crop_type or CropType.COTTON)
         
         mandi_infos = []
         for m in mandis[:10]:

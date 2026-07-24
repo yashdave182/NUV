@@ -15,8 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from agritech_api.ml_models.yield_model import YieldPredictor
 from agritech_api.ml_models.price_model import PriceForecaster
 from agritech_api.ml_models.disease_model import DiseaseRiskClassifier
-from agritech_api.ml_models.irrigation_model import IrrigationOptimizer
-from agritech_api.ml_models.fertilizer_model import FertilizerOptimizer
+from agritech_api.ml_models.irrigation_model import IrrigationOptimizer, FertilizerOptimizer
 from agritech_api.schemas import CropType
 
 

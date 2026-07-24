@@ -445,14 +445,17 @@ def search_schemes(
         score = 0
         matched = []
         
-        if category and scheme["category"] == category.value:
-            score += 10
-            matched.append(f"Category: {category.value}")
+        cat_str = category.value if hasattr(category, 'value') else str(category) if category else None
+        ben_str = beneficiary_type.value if hasattr(beneficiary_type, 'value') else str(beneficiary_type) if beneficiary_type else None
         
-        if beneficiary_type:
-            if beneficiary_type.value in scheme["target_beneficiaries"]:
+        if cat_str and scheme["category"] == cat_str:
+            score += 10
+            matched.append(f"Category: {cat_str}")
+        
+        if ben_str:
+            if ben_str in scheme["target_beneficiaries"]:
                 score += 10
-                matched.append(f"Beneficiary: {beneficiary_type.value}")
+                matched.append(f"Beneficiary: {ben_str}")
         
         if keywords:
             search_text = " ".join([
@@ -476,11 +479,11 @@ def search_schemes(
             if profile.get("land_holding_hectares", 10) < 2 and BeneficiaryType.FARMER.value in scheme["target_beneficiaries"]:
                 score += 5
         
-        if score > 0:
+        if score > 0 or (not category and not beneficiary_type and not keywords):
             results.append({
                 **scheme,
-                "match_score": score,
-                "matched_criteria": matched,
+                "match_score": score if score > 0 else 1,
+                "matched_criteria": matched if matched else ["Default Match"],
             })
     
     results.sort(key=lambda x: x["match_score"], reverse=True)

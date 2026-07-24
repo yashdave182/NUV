@@ -43,16 +43,16 @@ class MandiClient:
         cache_key = f"{crop.value}_{state}_{district}_{days}"
         
         if cache_key in self._cache:
-            cached = self._cache[cache_key]
-            if cached and (datetime.now() - cached[0].date).total_seconds() < self._cache_ttl:
-                return cached
+            cached_time, cached_prices = self._cache[cache_key]
+            if (datetime.now() - cached_time).total_seconds() < self._cache_ttl:
+                return cached_prices
 
         prices = await self._fetch_from_sources(crop, state, district, days)
         
         if not prices:
             prices = self._generate_mock_prices(crop, state, district, days)
         
-        self._cache[cache_key] = prices
+        self._cache[cache_key] = (datetime.now(), prices)
         return prices
 
     async def _fetch_from_sources(

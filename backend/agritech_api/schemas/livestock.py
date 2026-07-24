@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, root_validator
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from .common import (
@@ -9,19 +9,21 @@ from .common import (
 
 
 class LivestockProfileRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    animal_type: AnimalType
-    breed: Optional[BreedType] = None
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    animal_type: AnimalType = AnimalType.COW
+    breed: Optional[str] = None
     tag_number: Optional[str] = None
-    age_months: int = Field(..., ge=0, le=300)
-    weight_kg: Optional[float] = Field(None, ge=0, le=1000)
+    age_months: int = Field(default=36, ge=0, le=300)
+    weight_kg: Optional[float] = Field(default=450, ge=0, le=1000)
     body_condition_score: Optional[float] = Field(None, ge=1, le=5)
     lactation_stage: Optional[LactationStage] = None
     last_calving_date: Optional[date] = None
     pregnancy_status: Optional[bool] = None
     pregnancy_month: Optional[int] = Field(None, ge=1, le=9)
     vaccination_status: VaccinationStatus = VaccinationStatus.UNKNOWN
+    last_vaccination_date: Optional[date] = None
+    last_vaccine_name: Optional[str] = None
     deworming_date: Optional[date] = None
     housing_type: Optional[HousingType] = None
     feed_type: Optional[str] = None
@@ -30,8 +32,19 @@ class LivestockProfileRequest(BaseModel):
     snf_percent: Optional[float] = Field(None, ge=0, le=12)
     language: Language = Language.GUJLISH
 
+    @root_validator(pre=True)
+    def map_frontend_aliases(cls, values):
+        if not isinstance(values, dict):
+            return values
+        v = values.copy()
+        if 'body_weight_kg' in v and ('weight_kg' not in v or v['weight_kg'] is None):
+            v['weight_kg'] = v['body_weight_kg']
+        if 'milk_yield_kg_day' in v and ('milk_yield_litres' not in v or v['milk_yield_litres'] is None):
+            v['milk_yield_litres'] = v['milk_yield_kg_day']
+        return v
 
-class LivestockProfileResponse(BaseResponse):
+
+class LivestockProfileResponse(BaseModel):
     request_id: str
     phone: str
     animal_type: AnimalType
@@ -46,11 +59,11 @@ class LivestockProfileResponse(BaseResponse):
 
 
 class VaccinationScheduleRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    animal_type: AnimalType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    animal_type: AnimalType = AnimalType.COW
     breed: Optional[BreedType] = None
-    age_months: int = Field(..., ge=0, le=300)
+    age_months: int = Field(default=36, ge=0, le=300)
     last_vaccination_date: Optional[date] = None
     last_vaccine_name: Optional[str] = None
     pregnancy_status: Optional[bool] = None
@@ -86,13 +99,13 @@ class VaccinationScheduleResponse(BaseResponse):
 
 
 class HealthDiagnosisRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    animal_type: AnimalType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    animal_type: AnimalType = AnimalType.COW
     breed: Optional[BreedType] = None
-    age_months: int = Field(..., ge=0, le=300)
-    symptoms: List[str] = Field(..., min_items=1)
-    symptom_duration_days: int = Field(..., ge=1, le=365)
+    age_months: int = Field(default=36, ge=0, le=300)
+    symptoms: List[str] = Field(default=["fever"])
+    symptom_duration_days: int = Field(default=2, ge=1, le=365)
     temperature_celsius: Optional[float] = Field(None, ge=35, le=45)
     appetite: Optional[str] = Field(None, pattern="^(normal|reduced|absent)$")
     milk_yield_change: Optional[str] = Field(None, pattern="^(normal|decreased|stopped)$")
@@ -135,11 +148,11 @@ class HealthDiagnosisResponse(BaseResponse):
 
 
 class DewormingScheduleRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    animal_type: AnimalType
-    age_months: int = Field(..., ge=0, le=300)
-    weight_kg: Optional[float] = Field(None, ge=0, le=1000)
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    animal_type: AnimalType = AnimalType.COW
+    age_months: int = Field(default=36, ge=0, le=300)
+    weight_kg: Optional[float] = Field(default=450, ge=0, le=1000)
     last_deworming_date: Optional[date] = None
     last_dewormer_name: Optional[str] = None
     lactation_stage: Optional[LactationStage] = None
@@ -174,19 +187,30 @@ class DewormingScheduleResponse(BaseResponse):
 
 
 class FeedFormulationRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    animal_type: AnimalType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    animal_type: AnimalType = AnimalType.COW
     breed: Optional[BreedType] = None
-    age_months: int = Field(..., ge=0, le=300)
-    weight_kg: float = Field(..., ge=0, le=1000)
+    age_months: int = Field(default=36, ge=0, le=300)
+    weight_kg: float = Field(default=450, ge=0, le=1000)
     lactation_stage: Optional[LactationStage] = None
-    milk_yield_litres: Optional[float] = Field(None, ge=0, le=50)
+    milk_yield_litres: Optional[float] = Field(12, ge=0, le=50)
     fat_percent: Optional[float] = Field(None, ge=0, le=10)
     pregnancy_month: Optional[int] = Field(None, ge=1, le=9)
     available_ingredients: List[str] = Field(default_factory=list)
     budget_per_kg_inr: Optional[float] = Field(None, ge=0)
     language: Language = Language.GUJLISH
+
+    @root_validator(pre=True)
+    def map_frontend_aliases(cls, values):
+        if not isinstance(values, dict):
+            return values
+        v = values.copy()
+        if 'body_weight_kg' in v and ('weight_kg' not in v or v['weight_kg'] is None):
+            v['weight_kg'] = v['body_weight_kg']
+        if 'milk_yield_kg_day' in v and ('milk_yield_litres' not in v or v['milk_yield_litres'] is None):
+            v['milk_yield_litres'] = v['milk_yield_kg_day']
+        return v
 
 
 class FeedIngredient(BaseModel):
@@ -226,12 +250,12 @@ class FeedFormulationResponse(BaseResponse):
 
 
 class BreedingAdviceRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    animal_type: AnimalType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    animal_type: AnimalType = AnimalType.COW
     breed: Optional[BreedType] = None
-    age_months: int = Field(..., ge=0, le=300)
-    weight_kg: float = Field(..., ge=0, le=1000)
+    age_months: int = Field(default=36, ge=0, le=300)
+    weight_kg: float = Field(default=450, ge=0, le=1000)
     body_condition_score: Optional[float] = Field(None, ge=1, le=5)
     lactation_number: Optional[int] = Field(None, ge=0, le=10)
     last_calving_date: Optional[date] = None
@@ -246,7 +270,7 @@ class BreedingAdviceResponse(BaseResponse):
     phone: str
     animal_type: AnimalType
     heat_detection_guide: List[str]
-    optimal_breeding_window: Dict[str, Any]
+    optimal_breeding_window: Any
     ai_vs_natural_service: Dict[str, Any]
     recommended_bull_breeds: List[str]
     pregnancy_diagnosis_timeline: List[str]
@@ -258,12 +282,12 @@ class BreedingAdviceResponse(BaseResponse):
 
 
 class MilkQualityRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    animal_type: AnimalType
-    milk_sample_data: Dict[str, float]
-    fat_percent: float = Field(..., ge=0, le=15)
-    snf_percent: float = Field(..., ge=0, le=15)
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    animal_type: AnimalType = AnimalType.COW
+    milk_sample_data: Optional[Dict[str, float]] = Field(default_factory=lambda: {"fat": 4.5, "snf": 8.5})
+    fat_percent: float = Field(default=4.5, ge=0, le=15)
+    snf_percent: float = Field(default=8.5, ge=0, le=15)
     density: Optional[float] = Field(None, ge=1.0, le=1.05)
     ph: Optional[float] = Field(None, ge=6.0, le=7.0)
     temperature_celsius: Optional[float] = Field(None, ge=0, le=40)
@@ -289,8 +313,8 @@ class MilkQualityResponse(BaseResponse):
 
 
 class DiseaseOutbreakAlertRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
     animal_type: Optional[AnimalType] = None
     radius_km: int = Field(25, ge=5, le=100)
     language: Language = Language.GUJLISH
@@ -322,10 +346,10 @@ class DiseaseOutbreakAlertResponse(BaseResponse):
 
 
 class LivestockSchemeRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
     animal_type: Optional[AnimalType] = None
-    farmer_category: Optional[str] = Field(None, pattern="^(small|marginal|landless|women|sc_st|general)$")
+    farmer_category: Optional[str] = Field(None)
     language: Language = Language.GUJLISH
 
 
@@ -339,7 +363,7 @@ class LivestockScheme(BaseModel):
     application_process: List[str]
     documents_required: List[str]
     contact_info: Optional[str] = None
-    deadline: Optional[date] = None
+    deadline: Optional[str] = None
     website: Optional[str] = None
 
 

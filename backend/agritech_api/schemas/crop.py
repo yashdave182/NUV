@@ -48,7 +48,7 @@ class AdvisoryItem(BaseModel):
     confidence: str = Field(..., pattern="^(High|Medium|Low)$")
     rationale: str
     action_items: List[str]
-    timeline_days: int = Field(..., ge=1, le=7)
+    timeline_days: int = Field(..., ge=1, le=30)
     priority: int = Field(..., ge=1, le=3)
 
 

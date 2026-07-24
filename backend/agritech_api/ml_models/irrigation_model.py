@@ -194,12 +194,13 @@ class IrrigationOptimizer:
         sources = list(IrrigationSource)
         methods = list(IrrigationMethod)
         
+        import random
         for _ in range(n_samples):
-            crop = np.random.choice(crops)
-            stage = np.random.choice(stages)
-            soil = np.random.choice(soils)
-            source = np.random.choice(sources)
-            method = np.random.choice(methods)
+            crop = random.choice(crops)
+            stage = random.choice(stages)
+            soil = random.choice(soils)
+            source = random.choice(sources)
+            method = random.choice(methods)
             
             soil_moist = np.random.uniform(10, 90)
             
@@ -207,7 +208,7 @@ class IrrigationOptimizer:
             et0 = []
             for i in range(7):
                 tmax = np.random.uniform(20, 45)
-                tmin = np.random.uniform(10, 30)
+                tmin = np.random.uniform(10, min(30, tmax - 0.1))
                 hum = np.random.uniform(30, 95)
                 wind = np.random.uniform(2, 25)
                 rain = np.random.exponential(3)
@@ -621,9 +622,10 @@ class FertilizerOptimizer:
         crops = list(CropType)
         stages = list(GrowthStage)
         
+        import random
         for _ in range(n_samples):
-            crop = np.random.choice(crops)
-            stage = np.random.choice(stages)
+            crop = random.choice(crops)
+            stage = random.choice(stages)
             
             soil_test = {
                 "available_n": np.random.uniform(80, 350),
@@ -652,7 +654,7 @@ class FertilizerOptimizer:
             prev_apps = []
             for _ in range(np.random.randint(0, 3)):
                 prev_apps.append({
-                    "fertilizer": np.random.choice(["Urea", "DAP", "MOP"]),
+                    "fertilizer": random.choice(["Urea", "DAP", "MOP"]),
                     "dose_kg_ha": np.random.uniform(20, 100),
                     "days_ago": np.random.randint(7, 60),
                 })

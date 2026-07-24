@@ -7,7 +7,10 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from prophet import Prophet
+try:
+    from prophet import Prophet
+except ImportError:
+    Prophet = None
 import joblib
 from pathlib import Path
 
@@ -74,9 +77,9 @@ class RuleBasedPriceModel:
         
         trend = 0
         if len(historical_prices) >= 7:
-            recent = np.mean([p["price"] for p in historical_prices[-7:]])
-            older = np.mean([p["price"] for p in historical_prices[-14:-7]]) if len(historical_prices) >= 14 else recent
-            trend = (recent - older) / older
+            recent = np.mean([p.get("price", p.get("modal_price", current_price)) for p in historical_prices[-7:]])
+            older = np.mean([p.get("price", p.get("modal_price", current_price)) for p in historical_prices[-14:-7]]) if len(historical_prices) >= 14 else recent
+            trend = (recent - older) / older if older else 0
         
         arrival_factor = 1.0
         if arrival_trend and len(arrival_trend) >= 7:
@@ -150,6 +153,46 @@ class PriceForecaster:
         self.scaler = StandardScaler()
         self.feature_names = []
         self.metrics = None
+        
+    def generate_synthetic_data(self, n_samples: int = 1000):
+        np.random.seed(42)
+        start_date = date.today() - timedelta(days=n_samples)
+        
+        base_price = RuleBasedPriceModel(self.crop).base_prices.get(self.crop, 5000)
+        
+        historical_prices = []
+        arrival_data = []
+        weather_data = []
+        
+        price = base_price
+        for i in range(n_samples):
+            d = start_date + timedelta(days=i)
+            
+            price = price * (1 + np.random.normal(0, 0.02))
+            historical_prices.append({"date": d.isoformat(), "price": price})
+            arrival_data.append({"date": d.isoformat(), "arrival_tonnes": np.random.uniform(10, 500)})
+            weather_data.append({
+                "temp_max_c": np.random.uniform(20, 45),
+                "temp_min_c": np.random.uniform(10, 30),
+                "humidity_percent": np.random.uniform(30, 95),
+                "rainfall_mm": np.random.exponential(5),
+                "wind_speed_kmph": np.random.uniform(2, 30),
+            })
+            
+        market_data = {"mandi_count": 5, "transport_cost": 100}
+        
+        return historical_prices, arrival_data, weather_data, market_data
+
+    def train(self, n_samples: int = 15000):
+        historical_prices, arrival_data, weather_data, market_data = self.generate_synthetic_data(n_samples)
+        
+        self.train_prophet(historical_prices, arrival_data)
+        
+        X, y = self.prepare_ml_features(historical_prices, arrival_data, weather_data, market_data)
+        if len(X) > 0:
+            self.train_ml(X, y)
+        
+        return self.metrics
         
     def prepare_prophet_data(self, historical_prices: List[Dict]) -> pd.DataFrame:
         df = pd.DataFrame(historical_prices)

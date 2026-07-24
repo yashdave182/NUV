@@ -14,8 +14,7 @@ from agritech_api.clients import get_weather_client, get_satellite_client, get_s
 from agritech_api.ml_models.yield_model import RuleBasedYieldModel
 from agritech_api.ml_models.price_model import RuleBasedPriceModel
 from agritech_api.ml_models.disease_model import RuleBasedDiseaseModel
-from agritech_api.ml_models.irrigation_model import RuleBasedIrrigationModel
-from agritech_api.ml_models.fertilizer_model import RuleBasedFertilizerModel
+from agritech_api.ml_models.irrigation_model import RuleBasedIrrigationModel, RuleBasedFertilizerModel
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +45,7 @@ class MLModelManager:
         
         self.metrics: Dict[str, ModelMetrics] = {}
         
+        self._init_fallback_models()
         self._load_models()
 
     def _load_models(self):
@@ -60,7 +60,8 @@ class MLModelManager:
                     model_data = joblib.load(yield_path)
                     self.yield_models[crop] = model_data["model"]
                     self.yield_scalers[crop] = model_data.get("scaler")
-                    self.metrics[f"yield_{crop.value}"] = ModelMetrics(**model_data["metrics"])
+                    _known = {f.name for f in __import__('dataclasses').fields(ModelMetrics)}
+                    self.metrics[f"yield_{crop.value}"] = ModelMetrics(**{k: v for k, v in model_data["metrics"].items() if k in _known})
             
             for crop in CropType:
                 price_path = self.model_dir / f"price_{crop.value}.joblib"
@@ -68,7 +69,8 @@ class MLModelManager:
                     model_data = joblib.load(price_path)
                     self.price_models[crop] = model_data["model"]
                     self.price_scalers[crop] = model_data.get("scaler")
-                    self.metrics[f"price_{crop.value}"] = ModelMetrics(**model_data["metrics"])
+                    _known = {f.name for f in __import__('dataclasses').fields(ModelMetrics)}
+                    self.metrics[f"price_{crop.value}"] = ModelMetrics(**{k: v for k, v in model_data["metrics"].items() if k in _known})
             
             disease_path = self.model_dir / "disease_risk.joblib"
             if disease_path.exists():

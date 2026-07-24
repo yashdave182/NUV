@@ -7,6 +7,12 @@ import asyncio
 import sys
 from pathlib import Path
 
+# Configure utf-8 encoding for Windows console output
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
+
 # Add backend to path
 backend_dir = Path(__file__).parent
 sys.path.insert(0, str(backend_dir))
@@ -115,7 +121,7 @@ async def test_agriculture_service():
         
         satellite = await get_satellite_data(location, CropType.COTTON, 2.0, 
                                               date.today() - timedelta(days=60), 7)
-        print(f"✓ Satellite: {len(satellite)} days, NDVI={satellite[-1].get('ndvi', 0):.3f}")
+        print(f"✓ Satellite: {len(satellite)} days, NDVI={satellite[-1]['ndvi']:.3f}")
         
     except Exception as e:
         print(f"✗ Agriculture service error: {e}")

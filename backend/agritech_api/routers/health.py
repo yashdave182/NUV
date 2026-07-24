@@ -3,12 +3,12 @@ from typing import List, Optional
 from datetime import datetime, date
 import uuid
 
-from agritech_api.schemas import (
+from agritech_api.schemas.health import (
     HealthAdvisoryRequest, HealthAdvisoryResponse, AdvisoryItem,
     VaccinationScheduleRequest, VaccinationScheduleResponse, VaccineInfo,
     HealthCampRequest, HealthCampResponse,
     EmergencyTriageRequest, EmergencyTriageResponse, TriageLevel,
-    Language, Location, Gender, AgeGroup, HealthCategory, VitalSigns, SymptomInput,
+    AgeGroup, HealthCategory, Gender, VitalSigns, SymptomInput,
 )
 from agritech_api.services.health_service import (
     match_symptoms_to_conditions, check_red_flags, triage_level,
@@ -25,12 +25,14 @@ async def get_health_advisory(request: HealthAdvisoryRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        symptoms_list = [s.symptom for s in request.symptoms]
-        age_group = request.patient.age_group
-        pregnant = request.patient.pregnant or False
+        symptoms_list = request.get_symptoms_list()
+        patient_age = request.get_age()
+        patient_gender_str = request.get_gender()
+        age_group = AgeGroup.CHILD if patient_age < 12 else (AgeGroup.SENIOR if patient_age > 60 else AgeGroup.ADULT)
+        pregnant = False
         
         advisories_data = generate_health_advisory(
-            symptoms_list, age_group, request.patient.gender, pregnant,
+            symptoms_list, age_group, patient_gender_str, pregnant,
             request.vital_signs, request.language
         )
         
@@ -55,7 +57,7 @@ async def get_health_advisory(request: HealthAdvisoryRequest):
         
         vaccination_reminders = []
         if age_group in [AgeGroup.INFANT, AgeGroup.TODDLER, AgeGroup.CHILD]:
-            vac_schedule = get_vaccination_schedule(request.patient.age_years * 365 // 30 * 30)  # approximate
+            vac_schedule = get_vaccination_schedule(None)
             for v in vac_schedule.get("upcoming", [])[:3]:
                 vaccination_reminders.append({
                     "vaccine": v["vaccine_name"],
@@ -78,8 +80,8 @@ async def get_health_advisory(request: HealthAdvisoryRequest):
             request_id=request_id,
             phone=request.phone,
             patient_profile={
-                "age": request.patient.age_years,
-                "gender": request.patient.gender.value,
+                "age": patient_age,
+                "gender": patient_gender_str,
                 "age_group": age_group.value,
                 "pregnant": pregnant,
             },
@@ -161,8 +163,9 @@ async def emergency_triage(request: EmergencyTriageRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        symptoms_list = [s.symptom for s in request.symptoms]
-        age_group = AgeGroup.CHILD if request.patient_age < 12 else (AgeGroup.SENIOR if request.patient_age > 60 else AgeGroup.ADULT)
+        symptoms_list = request.get_symptoms_list()
+        patient_age_val = request.age if request.age is not None else request.patient_age
+        age_group = AgeGroup.CHILD if patient_age_val < 12 else (AgeGroup.SENIOR if patient_age_val > 60 else AgeGroup.ADULT)
         
         triage = triage_level(symptoms_list, request.vital_signs, age_group)
         

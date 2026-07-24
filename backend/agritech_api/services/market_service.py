@@ -46,21 +46,21 @@ MANDI_DATA = {
         },
     },
     "Maharashtra": {
-        "Pune": {"mandis": [{"name": "Pune APMC", "type": MandiType.APMC, "crops": [CropType.GROUNDNUT, CropType.MAIZE, CropType.WHEAT]}, {"name": "Pune E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.SOYBEAN, CropType.TUR]}]},
-        "Nashik": {"mandis": [{"name": "Nashik APMC", "type": MandiType.APMC, "crops": [CropType.ONION, CropType.GRAPES, CropType.TOMATO]}]},
-        "Aurangabad": {"mandis": [{"name": "Aurangabad APMC", "type": MandiType.APMC, "crops": [CropType.COTTON, CropType.SOYBEAN, CropType.MAIZE]}]},
+        "Pune": {"mandis": [{"name": "Pune APMC", "type": MandiType.APMC, "crops": [CropType.GROUNDNUT, CropType.MAIZE, CropType.WHEAT]}, {"name": "Pune E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.GROUNDNUT, CropType.BAJRA]}]},
+        "Nashik": {"mandis": [{"name": "Nashik APMC", "type": MandiType.APMC, "crops": [CropType.COTTON, CropType.WHEAT, CropType.MAIZE]}]},
+        "Aurangabad": {"mandis": [{"name": "Aurangabad APMC", "type": MandiType.APMC, "crops": [CropType.COTTON, CropType.BAJRA, CropType.MAIZE]}]},
     },
     "Rajasthan": {
-        "Jaipur": {"mandis": [{"name": "Jaipur APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.BAJRA, CropType.MUSTARD]}, {"name": "Jaipur E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.GROUNDNUT]}]},
+        "Jaipur": {"mandis": [{"name": "Jaipur APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.BAJRA, CropType.CASTOR]}, {"name": "Jaipur E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.GROUNDNUT]}]},
         "Jodhpur": {"mandis": [{"name": "Jodhpur APMC", "type": MandiType.APMC, "crops": [CropType.CUMIN, CropType.CASTOR, CropType.BAJRA]}]},
     },
     "Madhya Pradesh": {
-        "Indore": {"mandis": [{"name": "Indore APMC", "type": MandiType.APMC, "crops": [CropType.SOYBEAN, CropType.WHEAT, CropType.CHILLI]}, {"name": "Indore E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.MAIZE]}]},
-        "Bhopal": {"mandis": [{"name": "Bhopal APMC", "type": MandiType.APMC, "crops": [CropType.SOYBEAN, CropType.WHEAT, CropType.CHILLI]}]},
+        "Indore": {"mandis": [{"name": "Indore APMC", "type": MandiType.APMC, "crops": [CropType.COTTON, CropType.WHEAT, CropType.MAIZE]}, {"name": "Indore E-NAM", "type": MandiType.E_NAM, "crops": [CropType.COTTON, CropType.MAIZE]}]},
+        "Bhopal": {"mandis": [{"name": "Bhopal APMC", "type": MandiType.APMC, "crops": [CropType.GROUNDNUT, CropType.WHEAT, CropType.CASTOR]}]},
     },
     "Uttar Pradesh": {
-        "Lucknow": {"mandis": [{"name": "Lucknow APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.SUGARCANE, CropType.POTATO]}]},
-        "Kanpur": {"mandis": [{"name": "Kanpur APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.POTATO, CropType.MUSTARD]}]},
+        "Lucknow": {"mandis": [{"name": "Lucknow APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.MAIZE, CropType.BAJRA]}]},
+        "Kanpur": {"mandis": [{"name": "Kanpur APMC", "type": MandiType.APMC, "crops": [CropType.WHEAT, CropType.BAJRA, CropType.MAIZE]}]},
     },
 }
 
@@ -117,7 +117,7 @@ async def get_real_mandi_prices(
              "district": p.district, "state": p.state, "crop": p.crop.value,
              "variety": p.variety, "min_price": p.min_price, "max_price": p.max_price,
              "modal_price": p.modal_price, "arrival_tonnes": p.arrival_tonnes,
-             "date": p.date.isoformat(), "distance_km": p.distance_km,
+             "date": p.date.isoformat(), "distance_km": getattr(p, "distance_km", 25.0),
              "source": p.source} for p in prices]
 
 

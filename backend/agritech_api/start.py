@@ -9,8 +9,9 @@ import sys
 import asyncio
 from pathlib import Path
 
-# Add backend to path
+# Add backend root and agritech_api package to path
 backend_dir = Path(__file__).parent
+sys.path.insert(0, str(backend_dir.parent))
 sys.path.insert(0, str(backend_dir))
 
 import uvicorn
@@ -32,7 +33,7 @@ def run_server():
     print("-" * 60)
     
     uvicorn.run(
-        "main:app",
+        "agritech_api.main:app",
         host=host,
         port=port,
         reload=os.environ.get("APP_ENV") == "development",

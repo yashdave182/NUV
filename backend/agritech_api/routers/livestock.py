@@ -17,9 +17,14 @@ from agritech_api.schemas import (
     Language, Location,
 )
 from agritech_api.services.livestock_service import (
-    get_vaccination_schedule, get_deworming_schedule, formulate_feed,
-    diagnose_health, get_breeding_advice, assess_milk_quality,
-    get_disease_alerts, get_livestock_schemes,
+    get_vaccination_schedule as service_get_vaccination_schedule,
+    get_deworming_schedule as service_get_deworming_schedule,
+    formulate_feed as service_formulate_feed,
+    diagnose_health as service_diagnose_health,
+    get_breeding_advice as service_get_breeding_advice,
+    assess_milk_quality as service_assess_milk_quality,
+    get_disease_alerts as service_get_disease_alerts,
+    get_livestock_schemes as service_get_livestock_schemes,
 )
 from agritech_api.schemas.common import Language, ConfidenceLevel
 
@@ -31,7 +36,7 @@ async def get_livestock_profile(request: LivestockProfileRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        schedule = get_vaccination_schedule(
+        schedule = service_get_vaccination_schedule(
             request.animal_type, request.age_months,
             request.last_vaccination_date, request.last_vaccine_name,
             request.pregnancy_month,
@@ -39,7 +44,7 @@ async def get_livestock_profile(request: LivestockProfileRequest):
         
         upcoming = [v for v in schedule if v.status in ["due", "overdue"]]
         
-        deworming = get_deworming_schedule(
+        deworming = service_get_deworming_schedule(
             request.animal_type, request.age_months, request.weight_kg or 300,
             request.deworming_date, request.lactation_stage, request.pregnancy_month,
         )
@@ -83,7 +88,7 @@ async def get_vaccination_schedule_endpoint(request: VaccinationScheduleRequest)
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        schedule = get_vaccination_schedule(
+        schedule = service_get_vaccination_schedule(
             request.animal_type, request.age_months,
             request.last_vaccination_date, request.last_vaccine_name,
             request.pregnancy_month,
@@ -116,7 +121,7 @@ async def diagnose_health(request: HealthDiagnosisRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        diagnosis = diagnose_health(
+        diagnosis = service_diagnose_health(
             request.animal_type, request.breed, request.age_months,
             request.symptoms, request.symptom_duration_days,
             request.temperature_celsius, request.appetite, request.milk_yield_change,
@@ -165,7 +170,7 @@ async def get_deworming_schedule(request: DewormingScheduleRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        deworming = get_deworming_schedule(
+        deworming = service_get_deworming_schedule(
             request.animal_type, request.age_months, request.weight_kg or 300,
             request.last_deworming_date, request.lactation_stage,
             request.pregnancy_month, request.faecal_egg_count,
@@ -193,11 +198,10 @@ async def get_feed_formulation(request: FeedFormulationRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        formulation = formulate_feed(
-            request.animal_type, request.breed, request.age_months,
-            request.weight_kg, request.lactation_stage, request.milk_yield_litres,
-            request.fat_percent, request.pregnancy_month,
-            request.available_ingredients, request.budget_per_kg_inr,
+        formulation = service_formulate_feed(
+            request.animal_type, request.weight_kg or 450, request.lactation_stage,
+            request.milk_yield_litres, request.pregnancy_month,
+            request.available_ingredients or [], request.budget_per_kg_inr,
         )
         
         rec = formulation["recommended_formulation"]
@@ -225,9 +229,9 @@ async def get_breeding_advice(request: BreedingAdviceRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        advice = get_breeding_advice(
-            request.animal_type, request.breed, request.age_months,
-            request.weight_kg, request.body_condition_score, request.lactation_number,
+        advice = service_get_breeding_advice(
+            request.animal_type, request.age_months, request.weight_kg or 450,
+            request.body_condition_score, request.lactation_number,
             request.last_calving_date, request.heat_signs_observed, request.ai_history,
         )
         
@@ -257,7 +261,7 @@ async def assess_milk_quality(request: MilkQualityRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        quality = assess_milk_quality(
+        quality = service_assess_milk_quality(
             request.fat_percent, request.snf_percent, request.density,
             request.ph, request.temperature_celsius, request.somatic_cell_count,
             request.bacterial_count, request.antibiotic_residue,
@@ -288,7 +292,7 @@ async def get_disease_alerts(request: DiseaseOutbreakAlertRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        alerts = get_disease_alerts(request.location, request.animal_type, request.radius_km)
+        alerts = service_get_disease_alerts(request.location, request.animal_type, request.radius_km)
         
         overall_risk = "high" if any(a["risk_level"] == "critical" for a in alerts) else "medium" if alerts else "low"
         
@@ -313,7 +317,7 @@ async def get_livestock_schemes(request: LivestockSchemeRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        schemes = get_livestock_schemes(request.location, request.animal_type, request.farmer_category)
+        schemes = service_get_livestock_schemes(request.location, request.animal_type, request.farmer_category)
         
         sms = f"Livestock schemes ({len(schemes)}): {', '.join([s['scheme_name'][:15] for s in schemes[:3]])}. Subsidy: {schemes[0].get('subsidy_amount', 'Contact vet officer')}."
         

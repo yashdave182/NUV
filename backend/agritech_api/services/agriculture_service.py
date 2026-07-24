@@ -180,7 +180,26 @@ async def calculate_crop_water_need(crop_type: CropType, growth_stage: GrowthSta
 
 async def get_real_weather_data(location: Location, days: int = 7) -> List[Dict]:
     client = get_weather_client()
-    return await client.get_forecast(location.latitude, location.longitude, days)
+    data = await client.get_forecast(location.latitude, location.longitude, days)
+    result = []
+    for w in data:
+        if isinstance(w, dict):
+            result.append(w)
+        else:
+            result.append({
+                "date": str(getattr(w, "date", "")),
+                "temp_max_c": float(getattr(w, "temp_max_c", 30)),
+                "temp_min_c": float(getattr(w, "temp_min_c", 20)),
+                "humidity_percent": float(getattr(w, "humidity_percent", 60)),
+                "rainfall_mm": float(getattr(w, "rainfall_mm", 0)),
+                "wind_speed_kmph": float(getattr(w, "wind_speed_kmph", 10)),
+                "condition": str(getattr(w, "condition", "Sunny")),
+                "cloud_cover_percent": float(getattr(w, "cloud_cover_percent", 0)),
+                "solar_radiation_mj": float(getattr(w, "solar_radiation_mj", 15)),
+                "et0_mm": float(getattr(w, "et0_mm", 4)),
+                "advisory_note": "",
+            })
+    return result
 
 
 async def get_satellite_data(
@@ -188,10 +207,28 @@ async def get_satellite_data(
     sowing_date: date, days_back: int = 30
 ) -> List[Dict]:
     client = get_satellite_client()
-    return await client.get_field_data(
+    data = await client.get_field_data(
         location.latitude, location.longitude, area_hectares,
         crop_type, sowing_date, days_back
     )
+    result = []
+    for s in data:
+        if isinstance(s, dict):
+            result.append(s)
+        else:
+            result.append({
+                "date": str(getattr(s, "date", "")),
+                "ndvi": float(getattr(s, "ndvi", 0.6)),
+                "evi": float(getattr(s, "evi", 0.4)),
+                "ndwi": float(getattr(s, "ndwi", 0.2)),
+                "lst_day_c": float(getattr(s, "lst_day_c", 30)),
+                "lst_night_c": float(getattr(s, "lst_night_c", 20)),
+                "soil_moisture_percent": float(getattr(s, "soil_moisture_percent", 50)),
+                "precipitation_mm": float(getattr(s, "precipitation_mm", 0)),
+                "crop_health_score": float(getattr(s, "crop_health_score", 70)),
+                "anomalies": getattr(s, "anomalies", []),
+            })
+    return result
 
 
 async def get_soil_data(
@@ -272,17 +309,24 @@ async def get_irrigation_advisory(
     
     et0_forecast = []
     for w in weather_data[:7]:
-        et0_day = await calculate_et0(
-            w.get("temp_max_c", 30), w.get("temp_min_c", 20),
-            w.get("humidity_percent", 60), w.get("wind_speed_kmph", 10)
-        )
+        if isinstance(w, dict):
+            _tmax = w.get("temp_max_c", 30)
+            _tmin = w.get("temp_min_c", 20)
+            _hum = w.get("humidity_percent", 60)
+            _wind = w.get("wind_speed_kmph", 10)
+        else:
+            _tmax = getattr(w, "temp_max_c", 30)
+            _tmin = getattr(w, "temp_min_c", 20)
+            _hum = getattr(w, "humidity_percent", 60)
+            _wind = getattr(w, "wind_speed_kmph", 10)
+        et0_day = await calculate_et0(_tmax, _tmin, _hum, _wind)
         et0_forecast.append(et0_day)
     
     irrigation_rec = await ml_manager.optimize_irrigation(
         crop=crop_type,
         growth_stage=growth_stage,
         soil_type=soil_type or SoilType.ALLUVIAL,
-        soil_moisture=satellite_data[0].get("soil_moisture_percent", 50) if satellite_data else 50,
+        soil_moisture=getattr(satellite_data[0], "soil_moisture_percent", satellite_data[0].get("soil_moisture_percent", 50) if isinstance(satellite_data[0], dict) else 50) if satellite_data else 50,
         weather_forecast=weather_data,
         et0_forecast=et0_forecast,
         area_hectares=area_hectares,
@@ -306,7 +350,7 @@ async def get_irrigation_advisory(
             f"Apply {depth_mm:.0f} mm ({volume_m3:.0f} m³/ha) per irrigation",
             "Check soil moisture at 30 cm depth before irrigation",
         ],
-        "timeline_days": interval_days,
+        "timeline_days": min(int(interval_days), 30),
         "estimated_cost_inr": irrigation_rec.get("cost_estimate_inr", net_irrigation_need * 0.5 * 1000 * area_hectares),
         "materials_needed": ["Irrigation water", "Flow meter"] if net_irrigation_need > 0 else [],
         "precautions": [
@@ -428,7 +472,7 @@ async def get_pest_disease_advisory(
             "description": f"Probability: {risk.probability*100:.0f}%. Peak risk in {risk.days_to_peak} days. Weather trigger: {risk.weather_trigger}",
             "confidence": ConfidenceLevel.HIGH.value if risk.probability > 0.6 else ConfidenceLevel.MEDIUM.value,
             "action_items": [risk.recommended_action, "Monitor daily", "Consult KVK if symptoms appear"],
-            "timeline_days": risk.days_to_peak,
+            "timeline_days": min(int(risk.days_to_peak), 30),
             "estimated_cost_inr": 500,
             "materials_needed": ["Recommended pesticide/fungicide", "Sprayer", "PPE"],
             "precautions": [

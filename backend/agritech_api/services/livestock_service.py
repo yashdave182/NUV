@@ -486,7 +486,9 @@ def formulate_feed(
     budget_per_kg: Optional[float],
 ) -> Dict[str, Any]:
     
-    req = NUTRIENT_REQUIREMENTS.get(animal_type, {}).get(lactation_stage or LactationStage.DRY, {})
+    req = NUTRIENT_REQUIREMENTS.get(animal_type, {}).get(lactation_stage, None)
+    if not req:
+        req = {"dm_kg": 16, "cp_kg": 2.0, "tdn_kg": 11, "ca_g": 60, "p_g": 40}
     
     if milk_yield_litres and milk_yield_litres > 10:
         req = req.copy()

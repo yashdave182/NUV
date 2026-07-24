@@ -178,11 +178,11 @@ class RuleBasedDiseaseModel:
         rules = self.disease_rules.get(crop, {})
         risks = []
         
-        avg_humidity = np.mean([w.get("humidity_percent", 60) for w in weather_forecast[:7]])
-        max_humidity = max([w.get("humidity_percent", 60) for w in weather_forecast[:7]])
-        total_rain = sum([w.get("rainfall_mm", 0) for w in weather_forecast[:7]])
-        max_temp = max([w.get("temp_max_c", 30) for w in weather_forecast[:7]])
-        min_temp = min([w.get("temp_min_c", 20) for w in weather_forecast[:7]])
+        avg_humidity = np.mean([w.get("humidity_percent", 60) for w in weather_forecast[:7]]) if weather_forecast else 60
+        max_humidity = max([w.get("humidity_percent", 60) for w in weather_forecast[:7]]) if weather_forecast else 60
+        total_rain = sum([w.get("rainfall_mm", 0) for w in weather_forecast[:7]]) if weather_forecast else 0
+        max_temp = max([w.get("temp_max_c", 30) for w in weather_forecast[:7]]) if weather_forecast else 30
+        min_temp = min([w.get("temp_min_c", 20) for w in weather_forecast[:7]]) if weather_forecast else 20
         avg_soil_moist = np.mean([s.get("soil_moisture_percent", 50) for s in satellite_data[:7]]) if satellite_data else 50
         
         for disease, conditions in rules.items():
@@ -285,9 +285,10 @@ class DiseaseRiskClassifier:
         
         crops = list(CropType)
         
+        import random
         for _ in range(n_samples):
-            crop = np.random.choice(crops)
-            stage = np.random.choice(list(GrowthStage))
+            crop = random.choice(crops)
+            stage = random.choice(list(GrowthStage))
             
             weather = []
             for i in range(7):
@@ -346,15 +347,15 @@ class DiseaseRiskClassifier:
         return [
             list(CropType).index(crop),
             list(GrowthStage).index(stage),
-            np.mean([w["humidity_percent"] for w in weather]),
-            np.max([w["humidity_percent"] for w in weather]),
-            np.sum([w["rainfall_mm"] for w in weather]),
-            np.mean([w["temp_max_c"] for w in weather]),
-            np.max([w["temp_max_c"] for w in weather]),
-            np.min([w["temp_min_c"] for w in weather]),
-            np.mean([s.get("soil_moisture_percent", 50) for s in satellite]),
-            np.mean([s.get("ndvi", 0.5) for s in satellite]),
-            np.max([s.get("lst_day_c", 30) for s in satellite]),
+            np.mean([w["humidity_percent"] for w in weather]) if weather else 60,
+            np.max([w["humidity_percent"] for w in weather]) if weather else 60,
+            np.sum([w["rainfall_mm"] for w in weather]) if weather else 0,
+            np.mean([w["temp_max_c"] for w in weather]) if weather else 30,
+            np.max([w["temp_max_c"] for w in weather]) if weather else 30,
+            np.min([w["temp_min_c"] for w in weather]) if weather else 20,
+            np.mean([s.get("soil_moisture_percent", 50) for s in satellite]) if satellite else 50,
+            np.mean([s.get("ndvi", 0.5) for s in satellite]) if satellite else 0.5,
+            np.max([s.get("lst_day_c", 30) for s in satellite]) if satellite else 30,
             pests.get("whitefly", 0),
             pests.get("thrips", 0),
             pests.get("aphid", 0),

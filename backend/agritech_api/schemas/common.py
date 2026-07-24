@@ -201,6 +201,7 @@ class AnimalType(str, Enum):
 class BreedType(str, Enum):
     GIR = "Gir"
     SAHIWAL = "Sahiwal"
+    HF = "HF"
     HF_CROSS = "HF_Cross"
     MURRAH = "Murrah"
     JAFFRABADI = "Jaffrabadi"
@@ -229,6 +230,9 @@ class LactationStage(str, Enum):
     LATE = "late"
     DRY = "dry"
     HEIFER = "heifer"
+    EARLY_LACTATION = "early_lactation"
+    MID_LACTATION = "mid_lactation"
+    LATE_LACTATION = "late_lactation"
 
 
 class HousingType(str, Enum):

@@ -146,6 +146,9 @@ class SoilHealthClient:
         longitude: float,
         survey_number: Optional[str] = None
     ) -> SoilHealthData:
+        if latitude is None or longitude is None:
+            latitude, longitude = 23.0, 72.5
+            
         if 20 <= latitude <= 25 and 68 <= longitude <= 74:
             soil_type = SoilType.BLACK_COTTON
             ph = 7.8

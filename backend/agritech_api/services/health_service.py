@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional
 from datetime import date, datetime, timedelta
 from ..schemas import (
     Language, Location, Gender, AgeGroup, HealthCategory,
-    TriageLevel, VitalSigns, SymptomInput
+    TriageLevel, VitalSigns, SymptomInput, ConfidenceLevel
 )
 
 

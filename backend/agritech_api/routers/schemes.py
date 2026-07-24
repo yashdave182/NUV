@@ -15,6 +15,21 @@ from agritech_api.services.schemes_service import search_schemes, get_scheme_det
 router = APIRouter(prefix="/schemes", tags=["Government Schemes"])
 
 
+def _benefit_str(benefits) -> str:
+    """Safely extract a benefit summary string from dict or list."""
+    if not benefits:
+        return "See details"
+    if isinstance(benefits, dict):
+        # benefits is a single dict
+        return benefits.get("type", "Benefit") + ": " + str(benefits.get("amount", ""))
+    if isinstance(benefits, list) and len(benefits) > 0:
+        b = benefits[0]
+        if isinstance(b, dict):
+            return b.get("type", "Benefit") + ": " + str(b.get("amount", ""))
+        return str(b)
+    return "See details"
+
+
 @router.post("/search", response_model=SchemeQueryResponse)
 async def search_schemes_endpoint(request: SchemeQueryRequest):
     try:
@@ -43,8 +58,8 @@ async def search_schemes_endpoint(request: SchemeQueryRequest):
                 category=SchemeCategory(r["category"]),
                 implementing_agency=r["implementing_agency"],
                 level=r["level"],
-                benefit_summary=r["benefits"][0]["type"] + ": " + r["benefits"][0].get("amount", "") if r["benefits"] else "See details",
-                eligibility_summary="; ".join(r["eligibility_criteria"][:3]),
+                benefit_summary=_benefit_str(r.get("benefits", [])),
+                eligibility_summary="; ".join((r.get("eligibility_criteria") or [])[:3]),
             ))
         
         sms = f"Found {len(schemes)} schemes. Top: {', '.join([s.name[:20] for s in schemes[:3]])}. Reply with scheme ID for details."
@@ -160,7 +175,12 @@ async def check_scheme_eligibility(request: EligibilityCheckRequest):
     try:
         request_id = str(uuid.uuid4())[:8]
         
-        result = check_eligibility(request.scheme_id, request.profile)
+        scheme_id = request.scheme_id or "PMKISAN"
+        profile = request.profile or {
+            "crop_type": request.crop_type,
+            "land_holding_hectares": request.land_holding_hectares,
+        }
+        result = check_eligibility(scheme_id, profile)
         
         sms = f"Eligibility for {result['scheme_name']}: {'✅ ELIGIBLE' if result['is_eligible'] else '❌ NOT ELIGIBLE'} (Score: {result['eligibility_score']}%). {'; '.join(result['unmet_criteria'][:2]) if result['unmet_criteria'] else 'All criteria met'}."
         

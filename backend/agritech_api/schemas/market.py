@@ -1,14 +1,14 @@
 from enum import Enum
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, root_validator
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from .common import Language, Location, CropType, MandiType, TransportMode, StorageCondition, DecisionAction, PriceTrend, AlertType
 
 
 class MandiPriceRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    crop_type: CropType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    crop_type: CropType = CropType.COTTON
     variety: Optional[str] = None
     radius_km: int = Field(50, ge=5, le=200)
     days: int = Field(7, ge=1, le=30)
@@ -45,9 +45,9 @@ class MandiPriceResponse(BaseModel):
 
 
 class PriceTrendRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    crop_type: CropType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    crop_type: CropType = CropType.COTTON
     mandi_name: Optional[str] = None
     days: int = Field(30, ge=7, le=365)
     language: Language = Language.GUJLISH
@@ -77,13 +77,13 @@ class PriceTrendResponse(BaseModel):
 
 
 class SellDecisionRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    crop_type: CropType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    crop_type: CropType = CropType.COTTON
     variety: Optional[str] = None
-    quantity_kg: float = Field(..., gt=0, le=50000)
-    quality_grade: Optional[str] = Field(None, pattern="^(FAQ|Grade-A|Grade-B|Grade-C)$")
-    storage_condition: StorageCondition
+    quantity_kg: float = Field(default=1000, gt=0, le=50000)
+    quality_grade: Optional[str] = None
+    storage_condition: StorageCondition = StorageCondition.SHED
     days_stored: int = Field(0, ge=0, le=365)
     current_mandi_price: Optional[float] = None
     farmer_price_expectation: Optional[float] = Field(None, gt=0)
@@ -132,11 +132,12 @@ class SellDecisionResponse(BaseModel):
 
 
 class TransportOptimizationRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    origin: Location
-    destination: Location
-    crop_type: CropType
-    quantity_kg: float = Field(..., gt=0, le=50000)
+    phone: str = Field(default="9876543210")
+    origin: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    destination: Location = Field(default_factory=lambda: Location(state="Maharashtra"))
+    location: Optional[Location] = None  # fallback if frontend sends location
+    crop_type: CropType = CropType.COTTON
+    quantity_kg: float = Field(default=1000, gt=0, le=50000)
     transport_mode: TransportMode = TransportMode.TRUCK
     urgency: str = Field("normal", pattern="^(urgent|normal|flexible)$")
     language: Language = Language.GUJLISH
@@ -171,13 +172,14 @@ class TransportOptimizationResponse(BaseModel):
 
 
 class StorageAdvisoryRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    crop_type: CropType
-    quantity_kg: float = Field(..., gt=0, le=50000)
-    current_storage: StorageCondition
-    current_moisture_percent: float = Field(..., ge=5, le=30)
-    target_storage_days: int = Field(..., ge=1, le=365)
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    crop_type: CropType = CropType.COTTON
+    quantity_kg: float = Field(default=1000, gt=0, le=50000)
+    current_storage: StorageCondition = StorageCondition.SHED
+    current_moisture_percent: float = Field(default=12.0, ge=5, le=30)
+    target_storage_days: int = Field(default=30, ge=1, le=365)
+    days_stored: int = Field(default=0, ge=0, le=365)
     current_mandi_price: Optional[float] = None
     language: Language = Language.GUJLISH
 
@@ -212,12 +214,12 @@ class StorageAdvisoryResponse(BaseModel):
 
 
 class SpoilagePredictionRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    crop_type: CropType
-    quantity_kg: float = Field(..., gt=0, le=50000)
-    storage_condition: StorageCondition
-    current_moisture_percent: float = Field(..., ge=5, le=30)
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    crop_type: CropType = CropType.COTTON
+    quantity_kg: float = Field(default=1000, gt=0, le=50000)
+    storage_condition: StorageCondition = StorageCondition.SHED
+    current_moisture_percent: float = Field(default=12.0, ge=5, le=30)
     temperature_celsius: Optional[float] = Field(None, ge=0, le=50)
     humidity_percent: Optional[float] = Field(None, ge=0, le=100)
     days_stored: int = Field(0, ge=0, le=365)
@@ -249,16 +251,25 @@ class SpoilagePredictionResponse(BaseModel):
 
 
 class PriceAlertSetupRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    crop_type: CropType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    crop_type: CropType = CropType.COTTON
     mandi_name: Optional[str] = None
-    alert_type: AlertType
-    threshold_price: float = Field(..., gt=0)
-    threshold_direction: str = Field("above", pattern="^(above|below)$")
-    notification_channel: str = Field("sms", pattern="^(sms|whatsapp|both)$")
-    frequency: str = Field("instant", pattern="^(instant|daily|weekly)$")
+    alert_type: Optional[Any] = AlertType.PRICE_THRESHOLD
+    threshold_price: float = Field(default=5000, gt=0)
+    threshold_direction: str = Field("above")
+    notification_channel: str = Field("sms")
+    frequency: str = Field("instant")
     language: Language = Language.GUJLISH
+
+    @root_validator(pre=True)
+    def handle_alert_type_string(cls, values):
+        if isinstance(values, dict):
+            at = values.get('alert_type')
+            if at in ['above', 'below']:
+                values['threshold_direction'] = at
+                values['alert_type'] = AlertType.PRICE_THRESHOLD
+        return values
 
 
 class PriceAlertSetupResponse(BaseModel):
@@ -278,9 +289,9 @@ class PriceAlertSetupResponse(BaseModel):
 
 
 class PriceAlertTriggerRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    alert_id: str
-    current_price: float
+    phone: str = Field(default="9876543210")
+    alert_id: str = "ALT-001"
+    current_price: float = Field(default=5000)
     language: Language = Language.GUJLISH
 
 
@@ -299,9 +310,9 @@ class PriceAlertTriggerResponse(BaseModel):
 
 
 class MarketIntelligenceRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    crop_type: CropType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    crop_type: CropType = CropType.COTTON
     horizon_days: int = Field(14, ge=1, le=60)
     language: Language = Language.GUJLISH
 
@@ -323,8 +334,8 @@ class MarketIntelligenceResponse(BaseModel):
 
 
 class MandiListRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
     radius_km: int = Field(50, ge=5, le=200)
     crop_type: Optional[CropType] = None
     mandi_type: Optional[MandiType] = None

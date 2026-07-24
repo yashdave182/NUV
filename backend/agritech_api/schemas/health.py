@@ -58,14 +58,49 @@ class PatientProfile(BaseModel):
 
 
 class HealthAdvisoryRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    patient: PatientProfile
-    symptoms: List[SymptomInput]
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    # Simple flat fields from frontend
+    symptoms: Optional[List[Any]] = None  # can be list of strings or SymptomInput objects
+    age: Optional[int] = Field(None, ge=0, le=120)
+    gender: Optional[str] = None
+    # Full patient profile (optional, used if age/gender not provided directly)
+    patient: Optional[Any] = None
     vital_signs: Optional[VitalSigns] = None
     category: HealthCategory = HealthCategory.GENERAL
     language: Language = Language.GUJLISH
     is_emergency: bool = False
+
+    def get_age(self) -> int:
+        if self.age is not None:
+            return self.age
+        if self.patient and hasattr(self.patient, 'age_years'):
+            return self.patient.age_years
+        if isinstance(self.patient, dict):
+            return self.patient.get('age_years', 35)
+        return 35
+
+    def get_gender(self) -> str:
+        if self.gender:
+            return self.gender
+        if self.patient and hasattr(self.patient, 'gender'):
+            return str(self.patient.gender.value if hasattr(self.patient.gender, 'value') else self.patient.gender)
+        if isinstance(self.patient, dict):
+            return self.patient.get('gender', 'male')
+        return 'male'
+
+    def get_symptoms_list(self) -> List[str]:
+        if not self.symptoms:
+            return ['fever', 'fatigue']
+        result = []
+        for s in self.symptoms:
+            if isinstance(s, str):
+                result.append(s)
+            elif isinstance(s, dict):
+                result.append(s.get('symptom', str(s)))
+            else:
+                result.append(str(s))
+        return result
 
 
 class AdvisoryItem(BaseModel):
@@ -102,9 +137,9 @@ class HealthAdvisoryResponse(BaseModel):
 
 
 class VaccinationScheduleRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    child_dob: date
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    child_dob: Optional[date] = None
     language: Language = Language.GUJLISH
 
 
@@ -146,13 +181,21 @@ class HealthCampResponse(BaseModel):
 
 
 class EmergencyTriageRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    symptoms: List[SymptomInput]
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    symptoms: Optional[List[Any]] = None  # list of strings or SymptomInput objects
     vital_signs: Optional[VitalSigns] = None
-    patient_age: int = Field(..., ge=0, le=120)
-    patient_gender: Gender
+    patient_age: int = Field(default=35, ge=0, le=120)
+    patient_gender: Optional[str] = None
+    # Flat fields from frontend
+    age: Optional[int] = Field(None, ge=0, le=120)
+    gender: Optional[str] = None
     language: Language = Language.GUJLISH
+
+    def get_symptoms_list(self) -> List[str]:
+        if not self.symptoms:
+            return ['chest pain']
+        return [s if isinstance(s, str) else s.get('symptom', str(s)) if isinstance(s, dict) else str(s) for s in self.symptoms]
 
 
 class TriageLevel(str, Enum):

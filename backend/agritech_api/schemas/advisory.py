@@ -1,7 +1,7 @@
 from enum import Enum
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Dict, Any
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from .common import (
     Language, Location, CropType, SoilType, IrrigationSource,
     WeatherCondition, AdvisoryCategory, AdvisoryPriority, ConfidenceLevel,
@@ -19,30 +19,45 @@ class GrowthStage(str, Enum):
 
 
 class FarmInputRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
+    phone: Optional[str] = "9876543210"
     location: Location
     crop_type: CropType
     variety: Optional[str] = None
-    sowing_date: date
-    area_hectares: float = Field(..., gt=0, le=100)
+    season: Optional[str] = None
+    sowing_date: Optional[date] = None
+    area_hectares: float = Field(2.5, gt=0, le=100)
     soil_type: Optional[SoilType] = None
     irrigation_source: Optional[IrrigationSource] = None
     previous_crop: Optional[CropType] = None
     weather_observation: Optional[str] = None
     current_weather: Optional[WeatherCondition] = None
+    weather_forecast: Optional[List[Any]] = None
     temperature_celsius: Optional[float] = Field(None, ge=-10, le=55)
     humidity_percent: Optional[float] = Field(None, ge=0, le=100)
     rainfall_mm: Optional[float] = Field(None, ge=0, le=500)
     wind_speed_kmph: Optional[float] = Field(None, ge=0, le=200)
     leaf_photo_base64: Optional[str] = None
     pest_disease_observed: Optional[List[str]] = None
-    language: Language = Language.GUJLISH
+    language: Optional[Language] = Language.ENGLISH
 
-    @validator('sowing_date')
+    @validator('sowing_date', pre=True, always=True)
     def validate_sowing_date(cls, v):
-        if v > date.today():
-            raise ValueError('Sowing date cannot be in the future')
+        if not v:
+            return date.today() - timedelta(days=45)
+        if isinstance(v, str):
+            try:
+                v = date.fromisoformat(v)
+            except Exception:
+                return date.today() - timedelta(days=45)
+        if isinstance(v, date) and v > date.today():
+            return date.today()
         return v
+
+    @validator('phone', pre=True, always=True)
+    def validate_phone(cls, v):
+        if not v or not isinstance(v, str) or len(str(v).strip()) == 0:
+            return "9876543210"
+        return str(v).strip()
 
 
 class AdvisoryItem(BaseModel):
@@ -53,7 +68,7 @@ class AdvisoryItem(BaseModel):
     rationale: str
     confidence: ConfidenceLevel
     action_items: List[str]
-    timeline_days: int = Field(..., ge=1, le=7)
+    timeline_days: int = Field(..., ge=1, le=30)
     dosage_info: Optional[str] = None
     cost_estimate_inr: Optional[float] = Field(None, ge=0)
     weather_dependent: bool = False
@@ -117,10 +132,10 @@ class WeatherForecastItem(BaseModel):
 
 
 class DiseaseDetectionRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    crop_type: CropType
+    phone: str = Field(default="9876543210")
+    crop_type: CropType = CropType.COTTON
     image_base64: str
-    location: Location
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
     language: Language = Language.GUJLISH
 
 
@@ -147,9 +162,9 @@ class DiseaseDetectionResponse(BaseResponse):
 
 
 class CropCalendarRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
-    crop_type: CropType
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
+    crop_type: CropType = CropType.COTTON
     language: Language = Language.GUJLISH
 
 
@@ -175,8 +190,8 @@ class CropCalendarResponse(BaseResponse):
 
 
 class SoilHealthCardRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$")
-    location: Location
+    phone: str = Field(default="9876543210")
+    location: Location = Field(default_factory=lambda: Location(state="Gujarat"))
     survey_number: Optional[str] = None
     language: Language = Language.GUJLISH
 
